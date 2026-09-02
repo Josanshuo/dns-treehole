@@ -1,0 +1,50 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dns-treehole",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+
+  // 静态前端。免费版可用。
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // 非机密配置。机密（CF_API_TOKEN、INVITE_CODES）用 wrangler secret put。
+  "vars": {
+    // 所有帖子挂在这个名字下面。建议单独一个域名，别和正经业务共用 zone。
+    "BASE_NAME": "t.example.com",
+    // 记录 comment 的前缀，用来把本项目的记录和 zone 里其他记录隔开
+    "RECORD_TAG": "treehole",
+    // 记录数上限。免费版 zone（2024-09-01 后新建）总共只有 200 条，这里留缓冲。
+    "RECORD_CAP": "180",
+    // 每轮对账最多删多少条，防止烧光 1200/5min 的 API 额度
+    "SWEEP_BUDGET": "40"
+  },
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "POST_REAPER",
+        "class_name": "PostReaper"
+      }
+    ]
+  },
+
+  // 免费版只能用 SQLite 存储后端的 DO
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["PostReaper"]
+    }
+  ],
+
+  // 免费版每账号最多 5 个 cron 触发器，最细到每分钟
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}
