@@ -33,10 +33,10 @@ header{padding:48px 0 0}
 /* 状态点：绿=读取正常，每次轮询闪一下，来了新帖亮一下，读取失败变红 */
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-left:10px;vertical-align:0;
   transition:background .3s}
-.dot.poll{animation:dotblink .5s ease-in-out} /* 轮询只是轻轻暗一下，不发光 */
+.dot.poll{animation:dotbreath 2.4s cubic-bezier(.45,0,.55,1)} /* 每次轮询像呼吸：慢慢暗下去、缩一点，再慢慢回来，不发光 */
 .dot.new{animation:dotglow 1.8s ease-out}      /* 只有来了新帖才发光 */
 .dot.err{background:var(--gone)}
-@keyframes dotblink{50%{opacity:.35}}
+@keyframes dotbreath{50%{opacity:.3;transform:scale(.8)}}
 @keyframes dotglow{0%,55%{box-shadow:0 0 10px 4px rgba(62,142,90,.8)}100%{box-shadow:0 0 0 0 rgba(62,142,90,0)}}
 
 button{font-family:var(--mono);font-size:13px;color:var(--paper);background:var(--ink);
@@ -186,7 +186,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     <h2><span id="aboutTitle">这是什么</span><button type="button" id="aboutClose" aria-label="关闭">×</button></h2>
     <p>一个匿名即焚留言板。每条帖子就是一条 DNS TXT 记录，到点由 Worker 删掉，随即全网消失。</p>
     <hr>
-    <p><b>读</b>不经过服务器：页面每 5 秒直接走 DoH 同时问 <code>1.1.1.1</code> 和 <code>dns.google</code>，取并集，读侧不消耗 Worker 额度。</p>
+    <p><b>读</b>不经过服务器：页面每 3 秒直接走 DoH 同时问 <code>1.1.1.1</code> 和 <code>dns.google</code>，取并集，读侧不消耗 Worker 额度。</p>
     <p><b>写</b>走 Worker：校验邀请码、建 TXT 记录、记进 Durable Object 的台账，到点由它批量删掉。</p>
     <p>自己发的帖子会立刻显示；别人要过几十秒才看得到，这是解析器缓存决定的，不是没发出去。</p>
     <p><b>存活</b>是帖子的寿命，到点由服务端删掉记录。DNS 缓存另算，固定 60 秒，所以新帖和删除都最多晚一分钟被全网看到。</p>
@@ -213,7 +213,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   function pulse(cls){ dot.classList.remove(cls); void dot.offsetWidth; dot.classList.add(cls); } // 重新触发动画
   dot.addEventListener('animationend', () => dot.classList.remove('poll', 'new'));
   function dotOk(ok){ dot.classList.toggle('err', !ok); dot.title = ok ? '读取正常' : '读取失败'; }
-  const POLL_MS = 5000;
+  const POLL_MS = 3000; // 解析器缓存 60 秒，轮询再快也只能省下缓存过期到下一次轮询之间的等待；3 秒刚好让呼吸动画（2.4 秒）做完
   const SENTINEL = 'tree0'; // zone 里 *.BASE_NAME 的通配兜底记录，只为避免 NXDOMAIN 负缓存，不显示
   // 频道空着时随机挑一句招呼人来写，别用「还没有帖子」这种干巴巴的陈述
   const EMPTY_LINES = [
@@ -445,7 +445,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     const bySoon = (a,b)=>((a.isPost?a.expires:Infinity)-(b.isPost?b.expires:Infinity)) || byNew(a,b);
     merged.sort(sortMode==='soon' ? bySoon : byNew);
     const nsig = sortMode + '\n' + merged.map(r=>r.raw).join('\n');
-    if(nsig === sig) return; // 内容没变就不重绘，否则每 5 秒闪一次
+    if(nsig === sig) return; // 内容没变就不重绘，否则每次轮询闪一次
     sig = nsig;
     if(known && merged.some(r => r.isPost && !known.has(r.raw))) pulse('new'); // 来了没见过的帖子，状态点亮一下
     known = new Set(merged.map(r => r.raw));
@@ -637,7 +637,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
 
     updateBudget();
     setChannel(location.hash.slice(1), true) || setChannel('wall'); // 地址栏 #频道名 优先，否则 wall
-    setInterval(()=>{ if(!document.hidden) load(); }, POLL_MS); // 每 5 秒自动拉一次，页面不可见时歇着
+    setInterval(()=>{ if(!document.hidden) load(); }, POLL_MS); // 每 3 秒自动拉一次，页面不可见时歇着
     document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) load(); });
   })();
 })();
