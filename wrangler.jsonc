@@ -11,7 +11,9 @@
   // 静态前端。免费版可用。
   "assets": {
     "directory": "./public",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // 找不到的路径返回 public/404.html（状态码 404）
+    "not_found_handling": "404-page"
   },
 
   // 非机密配置。机密（CF_API_TOKEN、INVITE_CODES）用 wrangler secret put。
