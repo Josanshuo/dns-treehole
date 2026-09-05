@@ -1,6 +1,7 @@
-import { createTxt, deleteRecord, listOurTxt, countOurTxt, evictSoonest, DnsError } from './dns.js';
+import { deleteRecord, listOurTxt } from './dns.js';
 
 export { PostReaper } from './reaper.js';
+export { PostGate } from './gate.js';
 
 /* ---------- 记录格式 ---------- */
 // tree1;<创建时间戳>;<存活秒数>;<署名>;<正文>
@@ -59,38 +60,24 @@ async function handlePost(request, env) {
     );
   }
 
-  // 200 条上限保护。2024-09-01 之后新建的免费 zone 只有 200 条，
-  // 而且 zone 里的其他记录也计入配额，所以留了缓冲。
-  // 满了不让人等：把最接近过期的那条提前删掉腾位置。
-  const cap = Number(env.RECORD_CAP || 180);
-  let evicted = false;
-  try {
-    if ((await countOurTxt(env)) >= cap) {
-      evicted = Boolean(await evictSoonest(env));
-      if (!evicted) return json({ error: `已达记录上限（${cap}），等一些帖子过期后再发` }, 503);
-    }
-  } catch (err) {
-    if (err.status === 429) return json({ error: 'API 限流，稍后再试' }, 429);
-    throw err;
-  }
-
   const name = `${channel}.${env.BASE_NAME}`;
   const expiresAt = Date.now() + Number(ttl) * 1000;
 
-  let recordId;
-  try {
-    recordId = await createTxt(env, {
-      name,
-      content: content.replace(/\\/g, '\\\\'), // 反斜杠按 master-file 写法转义，不然 API 会把 \x 当转义序列吃掉
-      ttl: Number(ttl), // 缓存时长；实际消失靠删除，TTL 决定删除多久后全网可见
-      comment: `${env.RECORD_TAG}:${expiresAt}`,
-    });
-  } catch (err) {
-    if (err instanceof DnsError) {
-      return json({ error: `建记录失败：${err.message}` }, err.status === 429 ? 429 : 502);
-    }
-    throw err;
-  }
+  // 200 条上限保护。2024-09-01 之后新建的免费 zone 只有 200 条，
+  // 而且 zone 里的其他记录也计入配额，所以留了缓冲。
+  // 满了不让人等：把最接近过期的那条提前删掉腾位置。
+  // 计数 / 腾位 / 建记录必须一起串行执行，否则并发发帖会冲过上限，
+  // 所以交给全站唯一的 PostGate 实例排队做。
+  const gate = env.POST_GATE.get(env.POST_GATE.idFromName('gate'));
+  const res = await gate.create({
+    name,
+    content: content.replace(/\\/g, '\\\\'), // 反斜杠按 master-file 写法转义，不然 API 会把 \x 当转义序列吃掉
+    ttl: Number(ttl), // 缓存时长；实际消失靠删除，TTL 决定删除多久后全网可见
+    comment: `${env.RECORD_TAG}:${expiresAt}`,
+    cap: Number(env.RECORD_CAP || 180),
+  });
+  if (!res.ok) return json({ error: res.message }, res.status);
+  const { recordId, evicted } = res;
 
   // 设闹钟。失败也没关系，cron 会兜底。
   try {

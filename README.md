@@ -18,8 +18,8 @@ dig wall.t.example.com TXT +short
 
 ```
 POST /api/post
-  Worker ─ 校验邀请码 / 字节数 / 记录数上限
-         ├→ Cloudflare DNS API：建 TXT 记录
+  Worker ─ 校验邀请码 / 字节数
+         ├→ DO(gate).create()   全站单实例、串行：计数 → 满了挤掉最接近过期的 → 建 TXT 记录
          └→ DO(recordId).schedule(expiresAt)   闹钟，毫秒级
 
 DO.alarm()
@@ -129,7 +129,7 @@ curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"
 | cron 精度 | 最细每分钟 | 兜底延迟，主删除靠 DO 闹钟 |
 | Durable Objects | 免费版仅 SQLite 存储后端 | 已用 `new_sqlite_classes` |
 
-**关于 200 条**：其他 Cloudflare 服务（如 Email Routing 自动添加的 TXT/MX）也计入配额，所以 `RECORD_CAP` 默认设成 180 留缓冲。算法：`同时存活帖子数 ≈ 发帖速率 × 平均存活时长`。到了 `RECORD_CAP` 不会拒绝发帖，而是把最接近过期的那条提前删掉腾位置（响应里 `evicted: true`）；只有连可删的都没有（或 API 出错）才返回 503。查自己 zone 的配额和当前用量：
+**关于 200 条**：其他 Cloudflare 服务（如 Email Routing 自动添加的 TXT/MX）也计入配额，所以 `RECORD_CAP` 默认设成 180 留缓冲。算法：`同时存活帖子数 ≈ 发帖速率 × 平均存活时长`。到了 `RECORD_CAP` 不会拒绝发帖，而是把最接近过期的那条提前删掉腾位置（响应里 `evicted: true`）；只有连可删的都没有（或 API 出错）才返回 503。计数、腾位、建记录在全站唯一的 `PostGate` DO 里排队执行，所以并发发帖也不会冲过上限（实测：不串行时 10 个并发会超出 8 条）。查自己 zone 的配额和当前用量：
 
 ```bash
 curl "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/usage" \

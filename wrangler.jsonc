@@ -33,6 +33,11 @@
       {
         "name": "POST_REAPER",
         "class_name": "PostReaper"
+      },
+      {
+        // 全站唯一实例，把「计数 → 腾位 → 建记录」串行化，并发发帖不会冲过上限
+        "name": "POST_GATE",
+        "class_name": "PostGate"
       }
     ]
   },
@@ -42,6 +47,10 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["PostReaper"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["PostGate"]
     }
   ],
 
