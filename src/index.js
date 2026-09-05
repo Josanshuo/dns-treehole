@@ -9,6 +9,9 @@ export { PostGate } from './gate.js';
 
 const MAX_BYTES = 255;
 const PREFIX = 'tree1';
+// 记录的 DNS TTL 固定为 Cloudflare 允许的最短值。以前等于帖子寿命，结果频道里有一条一天的帖子，
+// 解析器就把整个频道的答案缓存一天，后面发的新帖别人几小时都看不到。
+const RECORD_TTL = 60;
 // 和 Cloudflare DNS 面板的 TTL 选项一致（去掉 Auto 和 1 分钟）：2/5/10/15/30 分钟、1/2/5/12 小时、1 天
 // 1 分钟去掉是因为实测别人要 20–60 秒才看得到（解析器把 60 秒的答案缓存满），一分钟的帖子几乎没人来得及看
 const ALLOWED_TTL = [120, 300, 600, 900, 1800, 3600, 7200, 18000, 43200, 86400];
@@ -125,7 +128,7 @@ async function handlePost(request, env) {
     unlimited,
     name,
     content: content.replace(/\\/g, '\\\\'), // 反斜杠按 master-file 写法转义，不然 API 会把 \x 当转义序列吃掉
-    ttl: Number(ttl), // 缓存时长；实际消失靠删除，TTL 决定删除多久后全网可见
+    ttl: RECORD_TTL, // DNS 缓存时长固定 60 秒，和帖子寿命无关；寿命写在内容里，靠删除和前端倒计时生效
     comment: `${env.RECORD_TAG}:${expiresAt}`,
     cap: Number(env.RECORD_CAP || 180),
   });
