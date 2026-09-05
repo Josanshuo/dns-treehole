@@ -26,6 +26,53 @@ function json(data, status = 200) {
   });
 }
 
+const staticCodes = (env) => (env.INVITE_CODES || '').split(',').map((s) => s.trim()).filter(Boolean);
+const gate = (env) => env.POST_GATE.get(env.POST_GATE.idFromName('gate'));
+
+/* ---------- 邀请码 ---------- */
+
+/** 前端填完邀请码时查一下还剩多少。静态码返回 unlimited。 */
+async function handleInviteCheck(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const code = String(body.invite || '').trim();
+  if (!code) return json({ ok: false });
+  if (staticCodes(env).includes(code)) return json({ ok: true, unlimited: true });
+  return json(await gate(env).check(code));
+}
+
+function timingSafeEqual(a, b) {
+  const x = enc.encode(a), y = enc.encode(b);
+  return x.length === y.length && crypto.subtle.timingSafeEqual(x, y);
+}
+
+/**
+ * 管理接口，用 ADMIN_KEY secret 保护（Authorization: Bearer <key>）：
+ *   GET    /api/admin/invites           列出所有生成的码和用量
+ *   POST   /api/admin/invites           { quota, count?, note? } 生成新码
+ *   DELETE /api/admin/invites/<code>    作废一个码
+ */
+async function handleAdmin(request, env, url) {
+  if (!env.ADMIN_KEY) return json({ error: '未配置 ADMIN_KEY' }, 503);
+  if (!timingSafeEqual(request.headers.get('Authorization') || '', `Bearer ${env.ADMIN_KEY}`)) {
+    return json({ error: '需要管理密钥' }, 401);
+  }
+  const m = url.pathname.match(/^\/api\/admin\/invites(?:\/([a-z0-9]+))?$/);
+  if (!m) return json({ error: '没有这个接口' }, 404);
+  const g = gate(env);
+
+  if (!m[1] && request.method === 'GET') return json({ invites: await g.list() });
+  if (!m[1] && request.method === 'POST') {
+    const body = await request.json().catch(() => ({}));
+    const quota = Number(body.quota), count = Number(body.count ?? 1);
+    if (!Number.isInteger(quota) || quota < 1 || quota > 10000) return json({ error: 'quota 要是 1–10000 的整数' }, 400);
+    if (!Number.isInteger(count) || count < 1 || count > 50) return json({ error: 'count 要是 1–50 的整数' }, 400);
+    const note = String(body.note || '').slice(0, 60);
+    return json({ invites: await g.issue({ quota, count, note }) });
+  }
+  if (m[1] && request.method === 'DELETE') return json({ revoked: await g.revoke(m[1]) });
+  return json({ error: '没有这个接口' }, 404);
+}
+
 /* ---------- 发布 ---------- */
 
 async function handlePost(request, env) {
@@ -39,10 +86,11 @@ async function handlePost(request, env) {
   const { invite, channel = 'wall', nick = 'anon', text: rawText = '', ttl = 300 } = body;
   const text = String(rawText).replace(/[\r\n]+/g, ' '); // 不支持换行，统一换成空格
 
-  // 邀请码。逗号分隔存在 secret 里，够小圈子用。
-  const codes = (env.INVITE_CODES || '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (!codes.length) return json({ error: '服务端未配置邀请码' }, 500);
-  if (!codes.includes(String(invite))) return json({ error: '邀请码无效' }, 403);
+  // 邀请码。secret 里逗号分隔的静态码不限量；用管理接口生成的码有额度，存在 PostGate 里，
+  // 由它在建记录的同一次排队里校验和扣减。
+  const code = String(invite || '').trim();
+  if (!code) return json({ error: '邀请码无效' }, 403);
+  const unlimited = staticCodes(env).includes(code);
 
   if (!CHANNEL_RE.test(channel)) return json({ error: '频道名只允许小写字母、数字和连字符' }, 400);
   if (!NICK_RE.test(nick)) return json({ error: '署名不合法（1-12 位，中英文数字下划线）' }, 400);
@@ -68,16 +116,17 @@ async function handlePost(request, env) {
   // 满了不让人等：把最接近过期的那条提前删掉腾位置。
   // 计数 / 腾位 / 建记录必须一起串行执行，否则并发发帖会冲过上限，
   // 所以交给全站唯一的 PostGate 实例排队做。
-  const gate = env.POST_GATE.get(env.POST_GATE.idFromName('gate'));
-  const res = await gate.create({
+  const res = await gate(env).create({
+    invite: code,
+    unlimited,
     name,
     content: content.replace(/\\/g, '\\\\'), // 反斜杠按 master-file 写法转义，不然 API 会把 \x 当转义序列吃掉
     ttl: Number(ttl), // 缓存时长；实际消失靠删除，TTL 决定删除多久后全网可见
     comment: `${env.RECORD_TAG}:${expiresAt}`,
     cap: Number(env.RECORD_CAP || 180),
   });
-  if (!res.ok) return json({ error: res.message }, res.status);
-  const { recordId, evicted } = res;
+  if (!res.ok) return json({ error: res.message, ...(res.left != null && { left: res.left }) }, res.status);
+  const { recordId, evicted, left } = res;
 
   // 设闹钟。失败也没关系，cron 会兜底。
   try {
@@ -94,6 +143,7 @@ async function handlePost(request, env) {
     bytes: used,
     content, // 前端拿它先把自己的帖子垫上显示，等 DNS 返回同样的字符串再自然接管
     evicted, // 为了腾位置提前删了一条最接近过期的帖子
+    left, // 这个邀请码还能发几条；null 表示不限量
     expiresAt: Math.floor(expiresAt / 1000),
     dig: `dig ${name} TXT +short`,
   });
@@ -150,6 +200,19 @@ export default {
     if (url.pathname === '/api/post' && request.method === 'POST') {
       try {
         return await handlePost(request, env);
+      } catch (err) {
+        console.error(err);
+        return json({ error: '服务端错误' }, 500);
+      }
+    }
+
+    if (url.pathname === '/api/invite/check' && request.method === 'POST') {
+      return handleInviteCheck(request, env);
+    }
+
+    if (url.pathname.startsWith('/api/admin/')) {
+      try {
+        return await handleAdmin(request, env, url);
       } catch (err) {
         console.error(err);
         return json({ error: '服务端错误' }, 500);

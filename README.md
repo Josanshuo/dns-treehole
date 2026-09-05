@@ -94,7 +94,8 @@ Dashboard → My Profile → API Tokens → Create Token → **Edit zone DNS** �
 ```bash
 npx wrangler secret put CF_API_TOKEN     # 第 2 步的令牌
 npx wrangler secret put CF_ZONE_ID       # Zone ID
-npx wrangler secret put INVITE_CODES     # 逗号分隔，如 alice-x9,bob-k2
+npx wrangler secret put INVITE_CODES     # 逗号分隔的静态码，不限量，如 alice-x9,bob-k2
+npx wrangler secret put ADMIN_KEY        # 管理密钥，用来生成有额度的邀请码（见下方「邀请码额度」）
 ```
 
 ### 5. 部署
@@ -116,6 +117,32 @@ npx wrangler deploy
 npx wrangler dev
 curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"
 ```
+
+---
+
+## 邀请码额度
+
+两种邀请码：
+
+- **静态码**：`INVITE_CODES` secret 里逗号分隔，不限量，适合自己人。
+- **生成的码**：有额度（能发几条），用完即止。存在 `PostGate` DO 的 SQLite 里，扣额度和建记录在同一次排队里完成，记录没建成不扣。
+
+生成、查看、作废都走管理接口，用 `ADMIN_KEY` 保护：
+
+```bash
+# 生成 3 个各能发 20 条的码
+curl -X POST https://<你的域名>/api/admin/invites \
+  -H "Authorization: Bearer $ADMIN_KEY" -H "Content-Type: application/json" \
+  -d '{"quota":20,"count":3,"note":"给同事"}'
+
+# 看所有码的用量（quota / used / left）
+curl https://<你的域名>/api/admin/invites -H "Authorization: Bearer $ADMIN_KEY"
+
+# 作废一个
+curl -X DELETE https://<你的域名>/api/admin/invites/<code> -H "Authorization: Bearer $ADMIN_KEY"
+```
+
+前端填完邀请码会显示「还剩 N 条」，发布后响应里也带 `left`（静态码为 `null`）。额度用完返回 403「这个邀请码的额度用完了」。
 
 ---
 
