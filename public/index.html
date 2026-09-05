@@ -55,7 +55,8 @@ main{border-top:1px solid var(--rule)}
 .status:empty{display:none}
 #list{margin:0;padding:0;list-style:none}
 .rec{padding:22px 0 20px;border-bottom:1px solid var(--rule)}
-.rec .body{margin:0 0 10px;white-space:pre-wrap;overflow-wrap:anywhere;transition:opacity .9s linear}
+.rec .body{margin:0 0 10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.rec .fade{transition:opacity .9s linear} /* 随剩余时间一起淡去的部分；倒计时和进度条不淡 */
 .rec.post .body{font-size:19px;line-height:1.58;padding-left:15px;border-left:2px solid var(--rule)}
 .rec.raw .body{font-family:var(--mono);font-size:13px;line-height:1.7;color:var(--ink-soft)}
 .rec .meta{font-family:var(--mono);font-size:12px;color:var(--ink-soft);
@@ -340,14 +341,14 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
       li.dataset.id = r.id;
 
       const body = document.createElement('div');
-      body.className = 'body';
+      body.className = 'body fade';
       if(r.isPost) fillBody(body, r.text); else body.textContent = r.raw;
       li.appendChild(body);
 
       const meta = document.createElement('div');
       meta.className = 'meta';
       meta.innerHTML = r.isPost
-        ? '<span class="who">'+esc(r.who)+'</span><span>'+hhmmss(r.created)+'</span>'
+        ? '<span class="who fade">'+esc(r.who)+'</span><span class="fade">'+hhmmss(r.created)+'</span>'
         : '<span>TXT · '+bytes(r.raw)+' 字节</span>';
       const ttlEl = document.createElement('span');
       ttlEl.className = 'ttl';
@@ -369,7 +370,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     for(const r of records){
       const li = listEl.querySelector('[data-id="'+r.id+'"]');
       if(!li) continue;
-      const ttlEl = li.querySelector('.ttl'), body = li.querySelector('.body');
+      const ttlEl = li.querySelector('.ttl');
 
       if(!r.isPost){ ttlEl.textContent = '非本站记录'; li.querySelector('.decay i').style.width='100%'; continue; }
 
@@ -378,7 +379,10 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
       const frac = r.ttl > 0 ? Math.max(0, Math.min(1, left / r.ttl)) : 0;
       ttlEl.textContent = '剩余 ' + clock(left);
       li.querySelector('.decay i').style.width = (frac*100).toFixed(1)+'%';
-      if(!reduced) body.style.opacity = (0.18 + 0.82*frac).toFixed(3);
+      if(!reduced){ // 正文、署名、时间一起淡去，只留倒计时清清楚楚
+        const op = (0.18 + 0.82*frac).toFixed(3);
+        li.querySelectorAll('.fade').forEach(el => { el.style.opacity = op; });
+      }
     }
     if(expired) apply(); // 把过期的从列表里拿掉（apply 会过滤掉它们）
   }
