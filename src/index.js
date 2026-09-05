@@ -35,7 +35,8 @@ async function handlePost(request, env) {
     return json({ error: '请求体不是合法 JSON' }, 400);
   }
 
-  const { invite, channel = 'wall', nick = 'anon', text = '', ttl = 300 } = body;
+  const { invite, channel = 'wall', nick = 'anon', text: rawText = '', ttl = 300 } = body;
+  const text = String(rawText).replace(/[\r\n]+/g, ' '); // 不支持换行，统一换成空格
 
   // 邀请码。逗号分隔存在 secret 里，够小圈子用。
   const codes = (env.INVITE_CODES || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -77,7 +78,7 @@ async function handlePost(request, env) {
   try {
     recordId = await createTxt(env, {
       name,
-      content,
+      content: content.replace(/\\/g, '\\\\'), // 反斜杠按 master-file 写法转义，不然 API 会把 \x 当转义序列吃掉
       ttl: Number(ttl), // 缓存时长；实际消失靠删除，TTL 决定删除多久后全网可见
       comment: `${env.RECORD_TAG}:${expiresAt}`,
     });
@@ -101,6 +102,7 @@ async function handlePost(request, env) {
     recordId,
     name,
     bytes: used,
+    content, // 前端拿它先把自己的帖子垫上显示，等 DNS 返回同样的字符串再自然接管
     expiresAt: Math.floor(expiresAt / 1000),
     dig: `dig ${name} TXT +short`,
   });

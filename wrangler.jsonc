@@ -4,6 +4,10 @@
   "main": "src/index.js",
   "compatibility_date": "2026-08-01",
 
+  // 站点域名。deploy 时 Cloudflare 自动建 DNS 记录和证书。
+  // 用 zone 下一级的名字最稳（Universal SSL 只覆盖一级子域）；也别放在 BASE_NAME（t.dnor.org）底下。
+  "routes": [{ "pattern": "shudong.dnor.org", "custom_domain": true }],
+
   // 静态前端。免费版可用。
   "assets": {
     "directory": "./public",

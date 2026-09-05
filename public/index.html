@@ -10,27 +10,49 @@
   --rule:#C3C6BA; --live:#4B3F9E; --gone:#8A4A52;
   --serif: Georgia,"Iowan Old Style","Songti SC","Noto Serif CJK SC",serif;
   --mono: ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  color-scheme: light;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
-  font-size:17px;line-height:1.62;padding:0 20px 72px}
-.wrap{max-width:660px;margin:0 auto}
-header{padding:40px 0 0}
-.mark{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--ink-soft);margin:0 0 26px}
-.mark b{color:var(--ink);font-weight:600}
-.query{border-top:1.5px solid var(--ink);border-bottom:1px solid var(--rule);padding:14px 0}
-.qline{display:flex;align-items:baseline;gap:8px;font-family:var(--mono);font-size:15px;flex-wrap:wrap}
-.qline .cmd,.qline .suffix{color:var(--ink-soft)}
-.qline input{flex:0 1 130px;min-width:0;font:inherit;color:var(--live);background:transparent;
-  border:none;border-bottom:1px dashed var(--rule);padding:2px 0}
-.qline input:focus{outline:none;border-bottom-color:var(--live)}
+  font-size:17px;line-height:1.62;padding:0 20px 80px}
+.wrap{max-width:620px;margin:0 auto}
+
+/* 头部 */
+header{padding:48px 0 0}
+.mark{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  font-family:var(--mono);font-size:12.5px;letter-spacing:.04em;color:var(--ink-soft);margin:0 0 22px}
+.mark b{color:var(--ink);font-weight:600;font-size:13px}
+.mark a{color:var(--ink-soft);text-decoration:none;border-bottom:1px dashed var(--rule);padding-bottom:1px;white-space:nowrap}
+.mark a:hover{color:var(--live);border-bottom-color:var(--live)}
+.mark a:focus-visible{outline:2px solid var(--live);outline-offset:3px}
+
 button{font-family:var(--mono);font-size:13px;color:var(--paper);background:var(--ink);
-  border:none;border-radius:2px;padding:6px 13px;cursor:pointer}
+  border:none;border-radius:2px;padding:6px 14px;cursor:pointer}
 button:hover{background:var(--live)}
 button:focus-visible{outline:2px solid var(--live);outline-offset:2px}
 button[disabled]{opacity:.4;cursor:default}
-.status{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);padding:9px 0 0;min-height:20px}
-.status .n{color:var(--live)} .status .err{color:var(--gone)}
+/* 频道 */
+.channels{border-top:1.5px solid var(--ink);padding:11px 0 9px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;
+  font-family:var(--mono);font-size:13px}
+#chips{display:contents}
+.chip{font:inherit;color:var(--ink-soft);background:transparent;border:none;border-radius:0;padding:2px 0;
+  border-bottom:1.5px solid transparent;cursor:pointer}
+.chip:hover{color:var(--live);background:transparent}
+.chip.on{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
+.chip:focus-visible{outline:2px solid var(--live);outline-offset:3px}
+.chipwrap{display:inline-flex;align-items:baseline;gap:3px}
+.chipx{font:inherit;font-size:12px;line-height:1;color:var(--rule);background:transparent;border:none;border-radius:0;padding:0 2px;cursor:pointer}
+.chipx:hover{color:var(--gone);background:transparent}
+.chipx:focus-visible{outline:2px solid var(--live);outline-offset:2px}
+.channels input{font:inherit;color:var(--live);background:transparent;border:none;border-bottom:1px dashed var(--rule);
+  padding:2px 0;width:130px;min-width:0;margin-left:auto}
+.channels input:focus{outline:none;border-bottom-color:var(--live)}
+.channels input::placeholder{color:var(--ink-soft)}
+
+/* 记录 */
+main{border-top:1px solid var(--rule)}
+.status{font-family:var(--mono);font-size:12.5px;color:var(--gone);padding:12px 0 0}
+.status:empty{display:none}
 #list{margin:0;padding:0;list-style:none}
 .rec{padding:22px 0 20px;border-bottom:1px solid var(--rule)}
 .rec .body{margin:0 0 10px;white-space:pre-wrap;overflow-wrap:anywhere;transition:opacity .9s linear}
@@ -39,38 +61,55 @@ button[disabled]{opacity:.4;cursor:default}
 .rec .meta{font-family:var(--mono);font-size:12px;color:var(--ink-soft);
   display:flex;gap:14px;flex-wrap:wrap;align-items:center}
 .rec .who{color:var(--ink)} .rec .ttl{color:var(--live)}
-.rec.burnt .body{opacity:1;font-family:var(--mono);font-size:13px;color:var(--gone);border-left-color:var(--gone)}
-.rec.burnt .ttl{color:var(--gone)}
+.rec .body a{color:var(--live);text-decoration:underline dotted;text-underline-offset:3px;overflow-wrap:anywhere}
+.rec .body a:hover{text-decoration-style:solid}
 .decay{height:2px;background:var(--rule);margin:12px 0 0;position:relative}
 .decay i{position:absolute;inset:0 auto 0 0;background:var(--live);transition:width .9s linear}
-.rec.burnt .decay i{background:var(--gone)}
-.empty{padding:34px 0;color:var(--ink-soft);font-size:16px;border-bottom:1px solid var(--rule)}
-.compose{margin:44px 0 0}
-h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;margin:0 0 4px}
-.lede{font-size:15.5px;color:var(--ink-soft);margin:0 0 18px;max-width:60ch}
-.field{margin:0 0 12px}
-.field textarea,.field input.t{width:100%;font-family:var(--serif);font-size:17px;color:var(--ink);
-  background:var(--paper-deep);border:1px solid var(--rule);border-radius:2px;padding:11px 12px;resize:vertical}
-.field input.t{font-family:var(--mono);font-size:14px}
-.field textarea:focus,.field input.t:focus{outline:none;border-color:var(--live)}
-.budget{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);
-  display:flex;justify-content:space-between;gap:12px;margin:6px 0 0}
-.budget .over{color:var(--gone)}
-.bar{height:3px;background:var(--rule);margin:6px 0 0}
+.empty{padding:36px 0;color:var(--ink-soft);font-size:16.5px;border-bottom:1px solid var(--rule);cursor:text}
+
+/* 写 */
+.compose{margin:40px 0 0}
+.compose textarea{width:100%;display:block;font-family:var(--serif);font-size:17px;line-height:1.6;color:var(--ink);
+  background:var(--paper-deep);border:1px solid var(--rule);border-radius:2px;padding:12px 13px;resize:vertical}
+.compose textarea:focus{outline:none;border-color:var(--live)}
+.budget{font-family:var(--mono);font-size:12px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:12px;margin:6px 0 0;min-height:18px}
+.budget .hint{opacity:.65}
+#budget.over{color:var(--gone)}
+.bar{height:2px;background:var(--rule);margin:4px 0 0}
 .bar i{display:block;height:100%;background:var(--live);width:0}
 .bar.over i{background:var(--gone)}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0 0}
 .row label{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft)}
 .row select,.row input.s{font-family:var(--mono);font-size:12.5px;background:var(--paper-deep);
-  border:1px solid var(--rule);border-radius:2px;padding:5px 7px;color:var(--ink)}
-.row input.s{width:110px}
+  border:1px solid var(--rule);border-radius:2px;padding:6px 8px;color:var(--ink)}
+.row select:focus,.row input.s:focus{outline:none;border-color:var(--live)}
+.row input.s{width:96px}
+.row button{margin-left:auto}
 .result{font-family:var(--mono);font-size:12.5px;margin:14px 0 0;padding:10px 12px;
-  background:var(--paper-deep);border-left:2px solid var(--live);display:none}
+  background:var(--paper-deep);border-left:2px solid var(--live);display:none;overflow-wrap:anywhere}
 .result.err{border-left-color:var(--gone);color:var(--gone)}
-.notes{margin:46px 0 0;border-top:1.5px solid var(--ink);padding:20px 0 0}
-.notes p{margin:0 0 14px;font-size:15.5px;max-width:64ch}
-.notes code{font-family:var(--mono);font-size:13.5px;background:var(--paper-deep);padding:1px 4px}
-@media (max-width:520px){body{font-size:16px;padding:0 16px 56px}.rec.post .body{font-size:17.5px}}
+
+/* 说明弹窗 */
+dialog{border:none;border-radius:3px;padding:0;background:var(--paper);color:var(--ink);
+  width:min(92vw,520px);box-shadow:0 24px 60px rgba(20,22,26,.28)}
+dialog::backdrop{background:rgba(34,37,42,.45)}
+.about{padding:24px 28px 28px}
+.about h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;margin:0 0 14px;
+  display:flex;justify-content:space-between;align-items:center}
+.about h2 button{background:transparent;color:var(--ink-soft);padding:0 4px;font-size:18px;line-height:1}
+.about h2 button:hover{color:var(--live);background:transparent}
+.about p{margin:0 0 12px;font-size:15.5px;line-height:1.66}
+.about p:last-child{margin-bottom:0}
+.about b{font-family:var(--mono);font-size:13px;font-weight:600;margin-right:4px}
+.about code{font-family:var(--mono);font-size:13px;background:var(--paper-deep);padding:1px 5px;overflow-wrap:anywhere}
+.about hr{border:none;border-top:1px solid var(--rule);margin:14px 0}
+
+@media (max-width:520px){
+  body{font-size:16px;padding:0 16px 56px}
+  header{padding-top:36px}
+  .rec.post .body{font-size:17.5px}
+  .about{padding:20px 20px 24px}
+}
 @media (prefers-reduced-motion:reduce){.rec .body,.decay i{transition:none}}
 </style>
 </head>
@@ -78,52 +117,52 @@ h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;m
 <div class="wrap">
 
 <header>
-  <p class="mark"><b>树洞</b> — 内容存在 DNS 的 TXT 记录里，到点自动消失</p>
-  <div class="query">
-    <div class="qline">
-      <span class="cmd">dig</span>
-      <input id="channel" value="wall" spellcheck="false" autocapitalize="off" aria-label="频道">
-      <span class="suffix" id="suffix">.…</span>
-      <span class="cmd">TXT</span>
-      <button id="go">读取</button>
-    </div>
-  </div>
-  <div class="status" id="status">正在载入…</div>
+  <p class="mark">
+    <span><b>树洞</b> · 到点自动消失</span>
+    <a href="#" id="aboutLink">这是什么？</a>
+  </p>
+  <nav class="channels" aria-label="频道">
+    <span id="chips"></span>
+    <input id="channel" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="新频道" placeholder="＋ 新频道，回车">
+  </nav>
 </header>
 
-<main><ul id="list"></ul></main>
+<main>
+  <div class="status" id="status"></div>
+  <ul id="list"></ul>
+</main>
 
-<section class="compose">
-  <h2>写一条</h2>
-  <p class="lede">发布走 Worker：校验邀请码、建 TXT 记录、给 Durable Object 设一个到点删除的闹钟。</p>
-
-  <div class="field">
-    <textarea id="text" rows="3" placeholder="想说的话……"></textarea>
-    <div class="budget">
-      <span id="budgetTxt">0 / 255 字节</span>
-      <span id="budgetHint">中文一个字占 3 字节</span>
-    </div>
-    <div class="bar" id="bar"><i></i></div>
-  </div>
+<section class="compose" aria-label="写一条">
+  <textarea id="text" rows="3" placeholder="想说的话……" enterkeyhint="send"></textarea>
+  <div class="budget"><span class="hint">回车发送</span><span id="budget">0 / 255</span></div>
+  <div class="bar" id="bar"><i></i></div>
 
   <div class="row">
     <input class="s" id="nick" value="anon" maxlength="12" spellcheck="false" aria-label="署名" placeholder="署名">
-    <input class="s" id="invite" type="password" spellcheck="false" aria-label="邀请码" placeholder="邀请码">
+    <input class="s" id="invite" type="password" spellcheck="false" autocomplete="off" aria-label="邀请码" placeholder="邀请码">
     <label for="ttl">存活</label>
     <select id="ttl"></select>
     <button id="post">发布</button>
   </div>
 
-  <div class="result" id="result"></div>
-</section>
-
-<section class="notes">
-  <p>读取不经过服务器：浏览器直接走 DoH 问 <code>1.1.1.1</code>，失败时改用 <code>dns.google</code>。所以读侧不消耗任何 Worker 额度，也不花钱。</p>
-  <p>TTL 决定的是缓存时长，不是存活时长。帖子真正消失靠 Worker 删记录；TTL 只决定这次删除多久后全网可见。</p>
-  <p>同一份数据在命令行里长这样：<code id="digCmd">dig … TXT +short</code></p>
+  <div class="result" id="result" role="status"></div>
 </section>
 
 </div>
+
+<dialog id="about" aria-labelledby="aboutTitle">
+  <div class="about">
+    <h2><span id="aboutTitle">这是什么</span><button type="button" id="aboutClose" aria-label="关闭">×</button></h2>
+    <p>一个匿名即焚留言板。每条帖子就是一条 DNS TXT 记录，到点由 Worker 删掉，随即全网消失。</p>
+    <hr>
+    <p><b>读</b>不经过服务器：页面每 5 秒直接走 DoH 同时问 <code>1.1.1.1</code> 和 <code>dns.google</code>，取并集，读侧不消耗 Worker 额度。</p>
+    <p><b>写</b>走 Worker：校验邀请码、建 TXT 记录、给 Durable Object 设一个到点删除的闹钟。</p>
+    <p>自己发的帖子会立刻显示；别人要过几十秒才看得到，这是解析器缓存决定的，不是没发出去。</p>
+    <p><b>存活</b>里的 TTL 是缓存时长，不是寿命。帖子真正消失靠删记录；TTL 只决定删除后多久全网看不到。</p>
+    <p><b>频道</b>只是个名字：点标签切换，或输入新名字回车；点 × 删掉不用的（wall 是默认，删不掉）。地址栏里的 <code>#频道名</code> 可以直接分享。</p>
+    <p>单条上限 <span id="maxBytes">255</span> 字节，中文一个字占 3 字节。</p>
+  </div>
+</dialog>
 
 <script>
 (function(){
@@ -134,18 +173,111 @@ h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;m
   const bytes = s => enc.encode(s).length;
   let CFG = { baseName:'', maxBytes:255, ttlOptions:[300] };
   let records = [], seq = 0;
+  let channel = 'wall', sig = null, loading = false; // sig：上次结果的指纹，没变就不重绘
+  let lastDns = [], pending = []; // lastDns：DNS 最近一次返回的帖子；pending：自己刚发、DNS 还没看到的帖子
+  const POLL_MS = 5000;
+  const SENTINEL = 'tree0'; // zone 里 *.BASE_NAME 的通配兜底记录，只为避免 NXDOMAIN 负缓存，不显示
+  // 频道空着时随机挑一句招呼人来写，别用「还没有帖子」这种干巴巴的陈述
+  const EMPTY_LINES = [
+    '树洞空着，先说点什么吧。',
+    '还没人开口。第一句话，留给你。',
+    '说出来就轻了，到点它自己会消失。',
+    '一片安静。写一句，打破它。',
+    '树洞在听。写下来，几分钟后它就忘了。',
+    '没人在，也正因为没人在，才好说话。',
+    '第一条留言还没出现，要不要就是你？',
+    '这里什么都不留，所以什么都可以说。',
+  ];
+  // 输入框的占位文字也随机换：都是些「憋不住、又不敢当面说」的话，给人一个开头
+  const PLACEHOLDERS = [
+    '国王有个驴耳朵',
+    '皇帝没穿衣服',
+    '有件事我没跟任何人说过',
+    '其实我一直都知道',
+    '那天我说的不是真心话',
+    '我根本没看懂，只是跟着笑',
+    '我偷偷放弃了',
+    '今天差点哭出来',
+    '我不喜欢那个礼物',
+    '开会的时候我一直在走神',
+    '我怕的不是输，是被看出来在怕',
+    '我想换个活法',
+  ];
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  function pickOther(a, cur){ let v = pick(a); while(a.length > 1 && v === cur) v = pick(a); return v; }
 
   const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const fqdn = () => ($('#channel').value.trim() || 'wall') + '.' + CFG.baseName;
+  const fqdn = () => channel + '.' + CFG.baseName;
 
-  function joinStrings(raw){
-    const parts = raw.match(/"(?:\\.|[^"\\])*"/g);
-    if(!parts) return raw.replace(/^"|"$/g,'');
-    return parts.map(p => p.slice(1,-1).replace(/\\(.)/g,'$1')).join('');
+  /* ---------- 频道 ---------- */
+  const CHANNEL_RE = /^[a-z0-9-]{1,20}$/; // 和 Worker 里的一致
+  const LS_KEY = 'treehole.channels';
+  let recent = [];
+  try{ recent = (JSON.parse(localStorage.getItem(LS_KEY)) || []).filter(s => typeof s==='string' && CHANNEL_RE.test(s)); }catch{}
+  function saveRecent(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(recent)); }catch{} }
+
+  function renderChips(){
+    const box = $('#chips'); box.innerHTML = '';
+    for(const c of ['wall', ...recent.filter(x => x!=='wall')].slice(0, 8)){ // wall 永远在第一个
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip' + (c===channel ? ' on' : ''); b.textContent = c;
+      if(c===channel) b.setAttribute('aria-current', 'true');
+      b.addEventListener('click', () => setChannel(c));
+      if(c==='wall'){ box.appendChild(b); continue; } // 默认频道不能删
+      const wrap = document.createElement('span'); wrap.className = 'chipwrap';
+      const x = document.createElement('button');
+      x.type = 'button'; x.className = 'chipx'; x.textContent = '×'; x.setAttribute('aria-label', '删除频道 ' + c);
+      x.addEventListener('click', () => removeChannel(c));
+      wrap.appendChild(b); wrap.appendChild(x); box.appendChild(wrap);
+    }
+  }
+  function removeChannel(c){
+    if(c==='wall') return;
+    recent = recent.filter(x => x!==c); saveRecent();
+    if(channel===c) setChannel('wall'); else renderChips(); // 删的是当前频道就回 wall
   }
 
-  function parseRecord(value){
-    const s = joinStrings(value);
+  // 切换频道：更新状态、最近列表、地址栏 hash，然后立刻拉一次。名字不合法返回 false
+  function setChannel(name, quiet){
+    const v = String(name || '').trim().toLowerCase();
+    if(!CHANNEL_RE.test(v)){
+      if(!quiet){ const i = $('#channel'); i.setCustomValidity('只允许小写字母、数字和连字符，最多 20 个'); i.reportValidity(); }
+      return false;
+    }
+    if(v !== channel){ channel = v; sig = null; lastDns = []; pending = []; }
+    recent = [v, ...recent.filter(x => x!==v)].slice(0, 8); saveRecent(); // 最近用过的排前面
+    renderChips();
+    const want = v==='wall' ? '' : '#' + v; // 默认频道不占地址栏
+    if(location.hash !== want) history.replaceState(null, '', location.pathname + location.search + want);
+    load();
+    return true;
+  }
+
+  // 两个解析器给的 TXT data 写法不同：
+  //   1.1.1.1 是 master-file 写法——带外层引号，\" \\ 转义，非 ASCII 字节写成 \DDD（十进制）
+  //   dns.google 是已经解码好的纯文本，没有引号也没有转义
+  // 靠开头有没有引号区分；带引号的按字节解转义再按 UTF-8 解码，否则原样返回
+  function unescapeTxt(seg){
+    const bytes = [], cps = [...seg]; // 按码点走，别拆坏 emoji
+    for(let i=0;i<cps.length;i++){
+      const c = cps[i];
+      if(c==='\\' && i+1<cps.length){
+        const d = cps.slice(i+1,i+4).join('');
+        if(/^\d{3}$/.test(d)){ bytes.push(+d & 255); i+=3; continue; }
+        bytes.push(...enc.encode(cps[i+1])); i++; continue;
+      }
+      bytes.push(...enc.encode(c));
+    }
+    return bytes;
+  }
+  function joinStrings(raw){
+    if(!raw.startsWith('"')) return raw;
+    const parts = raw.match(/"(?:\\.|[^"\\])*"/g) || [];
+    const bytes = parts.flatMap(p => unescapeTxt(p.slice(1,-1)));
+    return new TextDecoder().decode(new Uint8Array(bytes));
+  }
+
+  function parseContent(s){
     const m = s.match(/^tree1;(\d+);(\d+);([^;]*);([\s\S]*)$/);
     if(m){
       const created = +m[1], ttl = +m[2];
@@ -154,17 +286,41 @@ h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;m
     }
     return { isPost:false, raw:s };
   }
+  const parseRecord = value => parseContent(joinStrings(value));
 
-  const clock = s => s<=0 ? '已焚毁' : s<60 ? s+' 秒'
+  const clock = s => s<60 ? s+' 秒'
     : Math.floor(s/60)+' 分 '+String(s%60).padStart(2,'0')+' 秒';
   function hhmmss(ts){
     const d=new Date(ts*1000), p=n=>String(n).padStart(2,'0');
     return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
   }
 
+  // 正文里的 http(s) 链接变成可点的 <a>：新标签打开；nofollow/ugc 不给对方算外链；noreferrer 不带来源
+  // 链接遇到空格、中文或中文标点就停，句尾的英文标点也不算进去。只认 http(s)，所以不可能塞进 javascript:
+  const URL_RE = /https?:\/\/[^\s<>"'`{}|\\^\[\]　-〿一-鿿＀-￯]+/g;
+  function fillBody(el, text){
+    el.textContent = '';
+    let last = 0;
+    for(const m of text.matchAll(URL_RE)){
+      let url = m[0], end = m.index + url.length;
+      const trail = url.match(/[.,;:!?)\]}'"]+$/);
+      if(trail){ url = url.slice(0, -trail[0].length); end -= trail[0].length; }
+      el.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const a = document.createElement('a');
+      a.href = url; a.textContent = url; a.target = '_blank'; a.rel = 'nofollow ugc noopener noreferrer';
+      el.appendChild(a);
+      last = end;
+    }
+    el.appendChild(document.createTextNode(text.slice(last)));
+  }
+
   function render(){
     if(!records.length){
-      listEl.innerHTML = '<li class="empty">这个名字下没有 TXT 记录。在 DNS 里，「没有记录」和「域名不存在」是两种不同的回答。</li>';
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = pick(EMPTY_LINES);
+      li.addEventListener('click', () => $('#text').focus()); // 点一下就把光标放进输入框
+      listEl.innerHTML = ''; listEl.appendChild(li);
       return;
     }
     listEl.innerHTML = '';
@@ -175,7 +331,7 @@ h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;m
 
       const body = document.createElement('div');
       body.className = 'body';
-      body.textContent = r.isPost ? r.text : r.raw;
+      if(r.isPost) fillBody(body, r.text); else body.textContent = r.raw;
       li.appendChild(body);
 
       const meta = document.createElement('div');
@@ -199,6 +355,7 @@ h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;m
 
   function paint(){
     const now = Math.floor(Date.now()/1000);
+    let expired = false;
     for(const r of records){
       const li = listEl.querySelector('[data-id="'+r.id+'"]');
       if(!li) continue;
@@ -207,59 +364,70 @@ h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;m
       if(!r.isPost){ ttlEl.textContent = '非本站记录'; li.querySelector('.decay i').style.width='100%'; continue; }
 
       const left = r.expires - now;
+      if(left <= 0){ expired = true; continue; } // 到点直接消失，不留提示
       const frac = r.ttl > 0 ? Math.max(0, Math.min(1, left / r.ttl)) : 0;
-      const burnt = left <= 0;
-
-      li.classList.toggle('burnt', burnt);
-      ttlEl.textContent = burnt ? '已焚毁' : '剩余 ' + clock(left);
+      ttlEl.textContent = '剩余 ' + clock(left);
       li.querySelector('.decay i').style.width = (frac*100).toFixed(1)+'%';
-
-      if(burnt){
-        if(body.dataset.burnt !== '1'){
-          body.dataset.burnt = '1';
-          body.style.opacity = '';
-          body.textContent = '（记录已过期，缓存中不再有这条数据）';
-        }
-      }else if(!reduced){
-        body.style.opacity = (0.18 + 0.82*frac).toFixed(3);
-      }
+      if(!reduced) body.style.opacity = (0.18 + 0.82*frac).toFixed(3);
     }
+    if(expired) apply(); // 把过期的从列表里拿掉（apply 会过滤掉它们）
   }
   setInterval(paint, 1000);
 
+  // 把 DNS 的结果和自己刚发、DNS 还没看到的帖子合在一起；指纹没变就不重绘
+  function apply(){
+    const now = Math.floor(Date.now()/1000);
+    pending = pending.filter(p => p.expires > now && !lastDns.some(r => r.raw === p.raw)); // DNS 看到了或已过期就不用再垫
+    const merged = lastDns.concat(pending).filter(r => !r.isPost || r.expires > now); // 到点的直接不显示，哪怕解析器缓存里还有
+    merged.sort((a,b)=>(b.created||0)-(a.created||0)); // 顺序 DNS 不保证，客户端自己排
+    const nsig = merged.map(r=>r.raw).join('\n');
+    if(nsig === sig) return; // 内容没变就不重绘，否则每 5 秒闪一次
+    sig = nsig;
+    merged.forEach(r=>{ r.id = ++seq; });
+    records = merged;
+    render();
+  }
+
+  // 两个公共解析器各有各的缓存，谁先看到新记录说不准，所以同时问、取并集
+  const RESOLVERS = [
+    n => fetch('https://cloudflare-dns.com/dns-query?name='+encodeURIComponent(n)+'&type=TXT',
+      {headers:{accept:'application/dns-json'}, signal: AbortSignal.timeout(4000)}),
+    n => fetch('https://dns.google/resolve?name='+encodeURIComponent(n)+'&type=TXT',
+      {signal: AbortSignal.timeout(4000)}),
+  ];
   async function doh(name){
-    try{
-      const r = await fetch('https://cloudflare-dns.com/dns-query?name='+encodeURIComponent(name)+'&type=TXT',
-        {headers:{accept:'application/dns-json'}});
+    const results = await Promise.allSettled(RESOLVERS.map(async q => {
+      const r = await q(name);
       if(!r.ok) throw new Error('HTTP '+r.status);
-      return {data: await r.json(), via:'1.1.1.1'};
-    }catch{
-      const r = await fetch('https://dns.google/resolve?name='+encodeURIComponent(name)+'&type=TXT');
-      if(!r.ok) throw new Error('两个解析器都没答复');
-      return {data: await r.json(), via:'dns.google'};
-    }
+      return r.json();
+    }));
+    const ok = results.filter(x=>x.status==='fulfilled').map(x=>x.value);
+    if(!ok.length) throw new Error('两个解析器都没答复');
+    const answers = [];
+    for(const d of ok) for(const a of d.Answer||[]) if(a.type===16) answers.push(a);
+    return answers; // 去重放在解析之后做：两个解析器对引号的写法不一样
   }
 
   async function load(){
+    if(loading) return; // 上一轮还没回来就跳过这轮
+    loading = true;
     const name = fqdn();
-    $('#digCmd').textContent = 'dig ' + name + ' TXT +short';
-    $('#go').disabled = true;
-    statusEl.textContent = '查询中…';
     try{
-      const {data, via} = await doh(name);
-      records = (data.Answer||[]).filter(a=>a.type===16).map(a=>{
-        const rec = parseRecord(a.data); rec.id = ++seq; return rec;
-      });
-      records.sort((a,b)=>(b.created||0)-(a.created||0)); // 顺序 DNS 不保证，客户端自己排
-      render();
-      const posts = records.filter(r=>r.isPost).length;
-      statusEl.innerHTML = '来自 <span class="n">'+via+'</span> · '+records.length+' 条记录'
-        + (posts ? '（'+posts+' 条是帖子）' : '')
-        + ' · RCODE ' + (data.Status===0 ? 'NOERROR' : data.Status);
+      const answers = await doh(name);
+      if(name !== fqdn()){ setTimeout(load, 0); return; } // 等待期间换了频道，作废并立刻重查
+      const seen = new Set();
+      lastDns = [];
+      for(const a of answers){
+        const r = parseRecord(a.data);
+        if(r.raw === SENTINEL || seen.has(r.raw)) continue; // 通配兜底不显示；同一条记录两个解析器各回一份，按解析后内容去重
+        seen.add(r.raw); lastDns.push(r);
+      }
+      apply();
+      statusEl.textContent = ''; // 成功就清掉之前的错误提示
     }catch(err){
-      records=[]; listEl.innerHTML='';
-      statusEl.innerHTML = '<span class="err">读取失败：'+esc(err.message)+'</span>';
-    }finally{ $('#go').disabled=false; }
+      // 轮询里的偶发失败不清空列表，只在状态行提示
+      statusEl.textContent = '读取失败：' + err.message;
+    }finally{ loading = false; }
   }
 
   function draft(){
@@ -269,10 +437,9 @@ h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;m
 
   function updateBudget(){
     const n = bytes(draft()), over = n > CFG.maxBytes;
-    $('#budgetTxt').textContent = n+' / '+CFG.maxBytes+' 字节';
-    $('#budgetTxt').className = over ? 'over' : '';
-    $('#budgetHint').textContent = over ? '超出单条 TXT 上限'
-      : '中文一个字占 3 字节，还能写 '+Math.floor((CFG.maxBytes-n)/3)+' 个';
+    const b = $('#budget');
+    b.textContent = n + ' / ' + CFG.maxBytes + (over ? ' · 超出上限' : '');
+    b.classList.toggle('over', over);
     const bar = $('#bar');
     bar.classList.toggle('over', over);
     bar.querySelector('i').style.width = Math.min(100, n/CFG.maxBytes*100)+'%';
@@ -287,7 +454,7 @@ h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;m
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           invite: $('#invite').value,
-          channel: $('#channel').value.trim() || 'wall',
+          channel,
           nick: $('#nick').value.trim() || 'anon',
           text: $('#text').value,
           ttl: Number($('#ttl').value),
@@ -295,8 +462,13 @@ h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;m
       });
       const j = await r.json();
       if(!r.ok){ box.className='result err'; box.textContent = j.error || ('HTTP '+r.status); return; }
-      box.textContent = '已发布 · '+j.bytes+' 字节 · '+j.dig;
+      box.textContent = '已发布 · '+j.bytes+' 字节';
       $('#text').value=''; updateBudget();
+      $('#text').placeholder = pickOther(PLACEHOLDERS, $('#text').placeholder); // 发完换一句开头
+      if(j.content){ // 自己发的先垫上显示，不用等解析器缓存过期
+        const p = parseContent(j.content);
+        if(p.isPost && !pending.some(x=>x.raw===p.raw)){ pending.push(p); apply(); }
+      }
       setTimeout(load, 1200); // 等 Cloudflare 内部同步
     }catch(err){
       box.className='result err'; box.textContent = '网络错误：'+err.message;
@@ -307,19 +479,41 @@ h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;m
     try{
       CFG = await (await fetch('/api/config')).json();
     }catch{
-      statusEl.innerHTML = '<span class="err">读不到配置，Worker 是否已部署？</span>';
+      statusEl.textContent = '读不到配置，Worker 是否已部署？';
     }
-    $('#suffix').textContent = '.' + CFG.baseName;
+    $('#maxBytes').textContent = CFG.maxBytes;
+    $('#text').placeholder = pick(PLACEHOLDERS);
     $('#ttl').innerHTML = CFG.ttlOptions.map(t =>
       '<option value="'+t+'"'+(t===300?' selected':'')+'>'+
       (t<3600 ? t+' 秒' : (t/3600)+' 小时')+'</option>').join('');
+    const textEl = $('#text');
+    textEl.addEventListener('keydown', e=>{ // 回车即发送
+      if(e.key !== 'Enter') return;
+      if(e.isComposing || e.keyCode === 229) return; // 输入法还在选字，这个回车是给输入法的
+      e.preventDefault();
+      if(!$('#post').disabled) publish();
+    });
+    textEl.addEventListener('input', ()=>{ // 不支持换行：粘贴进来的换行换成空格
+      if(/[\r\n]/.test(textEl.value)) textEl.value = textEl.value.replace(/[\r\n]+/g, ' ');
+    });
     ['#text','#nick'].forEach(s=>$(s).addEventListener('input', updateBudget));
     $('#ttl').addEventListener('change', updateBudget);
-    $('#go').addEventListener('click', load);
     $('#post').addEventListener('click', publish);
-    $('#channel').addEventListener('keydown', e=>{ if(e.key==='Enter') load(); });
+    const chIn = $('#channel');
+    chIn.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.isComposing){ e.preventDefault(); if(setChannel(chIn.value)) chIn.value=''; } });
+    chIn.addEventListener('input', ()=>chIn.setCustomValidity(''));
+    addEventListener('hashchange', ()=>{ setChannel(location.hash.slice(1), true) || setChannel('wall'); });
+
+    const dlg = $('#about');
+    $('#aboutLink').addEventListener('click', e=>{ e.preventDefault(); dlg.showModal(); });
+    $('#aboutClose').addEventListener('click', ()=>dlg.close());
+    dlg.addEventListener('click', e=>{ if(e.target===dlg) dlg.close(); }); // 点遮罩关闭
+    dlg.addEventListener('keydown', e=>{ if(e.key==='Escape') dlg.close(); }); // Esc 关闭
+
     updateBudget();
-    load();
+    setChannel(location.hash.slice(1), true) || setChannel('wall'); // 地址栏 #频道名 优先，否则 wall
+    setInterval(()=>{ if(!document.hidden) load(); }, POLL_MS); // 每 5 秒自动拉一次，页面不可见时歇着
+    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) load(); });
   })();
 })();
 </script>

@@ -81,6 +81,14 @@ Dashboard → My Profile → API Tokens → Create Token → **Edit zone DNS** �
 "RECORD_CAP": "180"                // 见下方「记录数上限」
 ```
 
+另外在 zone 里加一条通配 TXT 记录，让还没有帖子的频道返回 NOERROR 而不是 NXDOMAIN：
+
+```
+*.t.yourdomain.com   TXT   "tree0"   TTL 60
+```
+
+不加的话，解析器会按 SOA 的 minimum（Cloudflare 默认 1800 秒）把 NXDOMAIN 负缓存 30 分钟，空频道里的第一条帖子要等很久才能被看到。前端会自动过滤掉 `tree0`。这条记录的 comment 不要以 `RECORD_TAG` 开头，否则会被对账 cron 当成帖子处理。
+
 ### 4. 写入机密
 
 ```bash
@@ -94,6 +102,12 @@ npx wrangler secret put INVITE_CODES     # 逗号分隔，如 alice-x9,bob-k2
 ```bash
 npm i -D wrangler
 npx wrangler deploy
+```
+
+想挂自己的域名：在 `wrangler.jsonc` 里加一条 `routes`，deploy 时 Cloudflare 会自动建 DNS 记录和证书。用 zone 下一级的名字（`x.yourdomain.com`）最稳，Universal SSL 只覆盖一级子域；也别放在 `BASE_NAME` 底下。
+
+```jsonc
+"routes": [{ "pattern": "treehole.yourdomain.com", "custom_domain": true }]
 ```
 
 本地开发（cron 可用 `--test-scheduled` 手动触发）：
