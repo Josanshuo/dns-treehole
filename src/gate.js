@@ -159,14 +159,15 @@ export class PostGate extends DurableObject {
     return this.#run(() => this.#create(req));
   }
 
-  async #create({ invite, unlimited, name, content, ttl, comment, expiresAt, cap }) {
+  /** ttl 是记录的 DNS 缓存时长（固定 60 秒）；lifetime 才是帖子寿命，邀请码的上限卡的是它。 */
+  async #create({ invite, unlimited, name, content, ttl, lifetime, comment, expiresAt, cap }) {
     // 先验邀请码。静态码不限量；生成的码看额度。
     let row = null;
     if (!unlimited) {
       row = this.#row(invite);
       if (!row) return { ok: false, status: 403, message: '邀请码无效' };
       if (row.used >= row.quota) return { ok: false, status: 403, message: '这个邀请码的额度用完了', left: 0, maxTtl: row.max_ttl };
-      if (ttl > row.max_ttl) {
+      if (lifetime > row.max_ttl) {
         return {
           ok: false, status: 400,
           message: `这个邀请码最长只能发 ${ttlLabel(row.max_ttl)}的帖子`,

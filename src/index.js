@@ -128,6 +128,7 @@ async function handlePost(request, env) {
     name,
     content: content.replace(/\\/g, '\\\\'), // 反斜杠按 master-file 写法转义，不然 API 会把 \x 当转义序列吃掉
     ttl: RECORD_TTL, // DNS 缓存时长固定 60 秒，和帖子寿命无关；寿命写在内容里，靠删除和前端倒计时生效
+    lifetime: Number(ttl), // 帖子寿命（秒），邀请码的存活时长上限卡的是它
     comment: `${env.RECORD_TAG}:${expiresAt}`,
     expiresAt,
     cap: Number(env.RECORD_CAP || 180),
