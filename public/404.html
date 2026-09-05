@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>树洞 · 找不到</title>
+<style>
+:root{
+  --paper:#E7E8E1; --paper-deep:#DEE0D6; --ink:#22252A; --ink-soft:#5C6169;
+  --rule:#C3C6BA; --live:#4B3F9E; --gone:#8A4A52;
+  --serif: Georgia,"Iowan Old Style","Songti SC","Noto Serif CJK SC",serif;
+  --mono: ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
+  font-size:17px;line-height:1.62;padding:0 20px 80px}
+.wrap{max-width:620px;margin:0 auto}
+
+header{padding:48px 0 0}
+.mark{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  font-family:var(--mono);font-size:12.5px;letter-spacing:.04em;color:var(--ink-soft);margin:0 0 22px}
+.mark b{color:var(--ink);font-weight:600;font-size:13px}
+.mark span.code{color:var(--gone)}
+
+main{border-top:1.5px solid var(--ink)}
+.rec{padding:22px 0 20px;border-bottom:1px solid var(--rule)}
+.rec .body{margin:0 0 10px;font-size:19px;line-height:1.58;padding-left:15px;border-left:2px solid var(--rule)}
+.rec .meta{font-family:var(--mono);font-size:12px;color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.rec .who{color:var(--ink)} .rec .ttl{color:var(--gone)}
+.decay{height:2px;background:var(--rule);margin:12px 0 0}
+
+.back{margin:36px 0 0}
+.back a{font-family:var(--mono);font-size:13px;color:var(--paper);background:var(--ink);
+  border-radius:2px;padding:7px 14px;text-decoration:none;display:inline-block}
+.back a:hover{background:var(--live)}
+.back a:focus-visible{outline:2px solid var(--live);outline-offset:2px}
+
+@media (max-width:520px){
+  body{font-size:16px;padding:0 16px 56px}
+  header{padding-top:36px}
+  .rec .body{font-size:17.5px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="mark">
+    <span><b>树洞</b> · 到点自动消失</span>
+    <span class="code">404</span>
+  </p>
+</header>
+
+<main>
+  <div class="rec">
+    <p class="body">这里什么都没有。也许到点消失了，也许从来就不存在。</p>
+    <p class="meta"><span class="who">树洞</span><span class="ttl">已消失</span></p>
+    <div class="decay"></div>
+  </div>
+</main>
+
+<p class="back"><a href="/">回到树洞</a></p>
+
+</div>
+</body>
+</html>

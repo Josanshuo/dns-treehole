@@ -138,7 +138,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   <div class="bar" id="bar"><i></i></div>
 
   <div class="row">
-    <input class="s" id="nick" value="anon" maxlength="12" spellcheck="false" aria-label="署名" placeholder="署名">
+    <input class="s" id="nick" maxlength="12" spellcheck="false" aria-label="署名" placeholder="署名">
     <input class="s" id="invite" type="password" spellcheck="false" autocomplete="off" aria-label="邀请码" placeholder="邀请码">
     <label for="ttl">存活</label>
     <select id="ttl"></select>
@@ -203,6 +203,16 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     '我怕的不是输，是被看出来在怕',
     '我想换个活法',
   ];
+  // 署名也随机给一个，省得人人都叫 anon。都是些「不知道是谁」的名字，短一点省字节
+  const NICKS = [
+    '路人', '过客', '某人', '无名氏', '佚名', '不具名', '陌生人', '旁观者', '局外人',
+    '小透明', '隐身人', '夜猫子', '隔壁的', '楼上的', '深夜', '悄悄话', '回声', '风声',
+    '理发师', '那个小孩', '芦苇', '一阵风', '影子', '一只猫', '一片叶', '月亮', '蝉', '雨',
+    'anon', 'nobody', 'no_one', 'someone', 'stranger', 'passerby', 'lurker', 'guest',
+    'unknown', 'john_doe', 'nemo', 'ghost', 'shadow', 'echo', 'whisper', 'wind',
+    'reed', 'moon', 'night_owl', 'a_cat', 'the_barber', 'the_kid',
+  ];
+  let autoNick = ''; // 当前自动填的署名；用户改过就不再动它
   const pick = a => a[Math.floor(Math.random() * a.length)];
   function pickOther(a, cur){ let v = pick(a); while(a.length > 1 && v === cur) v = pick(a); return v; }
 
@@ -465,6 +475,9 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
       box.textContent = '已发布 · '+j.bytes+' 字节';
       $('#text').value=''; updateBudget();
       $('#text').placeholder = pickOther(PLACEHOLDERS, $('#text').placeholder); // 发完换一句开头
+      if($('#nick').value.trim() === autoNick){ // 署名还是自动填的那个，就换一个；用户自己起的名字不动
+        autoNick = pickOther(NICKS, autoNick); $('#nick').value = autoNick; updateBudget();
+      }
       if(j.content){ // 自己发的先垫上显示，不用等解析器缓存过期
         const p = parseContent(j.content);
         if(p.isPost && !pending.some(x=>x.raw===p.raw)){ pending.push(p); apply(); }
@@ -483,6 +496,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     }
     $('#maxBytes').textContent = CFG.maxBytes;
     $('#text').placeholder = pick(PLACEHOLDERS);
+    autoNick = pick(NICKS); $('#nick').value = autoNick;
     $('#ttl').innerHTML = CFG.ttlOptions.map(t =>
       '<option value="'+t+'"'+(t===300?' selected':'')+'>'+
       (t<3600 ? t+' 秒' : (t/3600)+' 小时')+'</option>').join('');
