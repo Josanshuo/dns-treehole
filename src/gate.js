@@ -39,11 +39,13 @@ export class PostGate extends DurableObject {
       used    INTEGER NOT NULL DEFAULT 0,
       note    TEXT NOT NULL DEFAULT '',
       created INTEGER NOT NULL,
-      max_ttl INTEGER NOT NULL DEFAULT 60
+      max_ttl INTEGER NOT NULL DEFAULT 120
     )`);
-    // 老表没有 max_ttl 列就补上；已有的码按默认 60 秒算
+    // 老表没有 max_ttl 列就补上
     const cols = sql.exec('PRAGMA table_info(invites)').toArray().map((c) => c.name);
-    if (!cols.includes('max_ttl')) sql.exec('ALTER TABLE invites ADD COLUMN max_ttl INTEGER NOT NULL DEFAULT 60');
+    if (!cols.includes('max_ttl')) sql.exec('ALTER TABLE invites ADD COLUMN max_ttl INTEGER NOT NULL DEFAULT 120');
+    // 1 分钟这一档已经取消，之前按 60 秒发的码提到 2 分钟，不然它们什么都发不了
+    sql.exec('UPDATE invites SET max_ttl = 120 WHERE max_ttl < 120');
   }
 
   /* ---------- 邀请码 ---------- */
@@ -61,7 +63,7 @@ export class PostGate extends DurableObject {
   }
 
   /** 生成 count 个额度为 quota、最长存活 maxTtl 秒的码。 */
-  issue({ quota, count = 1, note = '', maxTtl = 60 }) {
+  issue({ quota, count = 1, note = '', maxTtl = 120 }) {
     const now = Date.now();
     const out = [];
     for (let i = 0; i < count; i++) {

@@ -11,7 +11,7 @@
 <style>
 :root{
   --paper:#E7E8E1; --paper-deep:#DEE0D6; --ink:#22252A; --ink-soft:#5C6169;
-  --rule:#C3C6BA; --live:#4B3F9E; --gone:#8A4A52;
+  --rule:#C3C6BA; --live:#4B3F9E; --gone:#8A4A52; --ok:#3E8E5A;
   --serif: Georgia,"Iowan Old Style","Songti SC","Noto Serif CJK SC",serif;
   --mono: ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
   color-scheme: light;
@@ -30,6 +30,14 @@ header{padding:48px 0 0}
 .mark a{color:var(--ink-soft);text-decoration:none;border-bottom:1px dashed var(--rule);padding-bottom:1px;white-space:nowrap}
 .mark a:hover{color:var(--live);border-bottom-color:var(--live)}
 .mark a:focus-visible{outline:2px solid var(--live);outline-offset:3px}
+/* 状态点：绿=读取正常，每次轮询闪一下，来了新帖亮一下，读取失败变红 */
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-left:10px;vertical-align:1px;
+  transition:background .3s}
+.dot.poll{animation:dotflash .7s ease-out}
+.dot.new{animation:dotglow 1.8s ease-out}
+.dot.err{background:var(--gone)}
+@keyframes dotflash{0%{box-shadow:0 0 0 0 rgba(62,142,90,.55)}100%{box-shadow:0 0 0 7px rgba(62,142,90,0)}}
+@keyframes dotglow{0%,55%{box-shadow:0 0 9px 3px rgba(62,142,90,.75)}100%{box-shadow:0 0 0 0 rgba(62,142,90,0)}}
 
 button{font-family:var(--mono);font-size:13px;color:var(--paper);background:var(--ink);
   border:none;border-radius:2px;padding:6px 14px;cursor:pointer}
@@ -128,7 +136,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   .about{padding:20px 20px 24px}
   .budget .hint{display:none} /* 手机上没有回车键这回事 */
 }
-@media (prefers-reduced-motion:reduce){.rec .body,.decay i{transition:none}}
+@media (prefers-reduced-motion:reduce){.rec .body,.decay i{transition:none} .dot{animation:none!important}}
 </style>
 </head>
 <body>
@@ -136,7 +144,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
 
 <header>
   <p class="mark">
-    <span><svg class="logo" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M52.2 32.8C52.4 35.3 52 38.2 51 40.5C50 42.7 48.1 45 46.2 46.5C44.3 48.1 41.8 49.1 39.5 49.8C37.2 50.5 34.8 50.7 32.5 50.7C30.2 50.7 27.7 50.5 25.5 49.8C23.2 49.1 20.7 48 18.9 46.4C17 44.9 15.2 42.6 14.2 40.4C13.2 38.1 12.8 35.3 12.9 32.8C13 30.3 13.8 27.7 14.9 25.5C15.9 23.3 17.4 21.2 19.2 19.5C20.9 17.8 23.1 16.3 25.3 15.4C27.5 14.4 30.1 13.9 32.5 14C34.9 14 37.4 14.7 39.6 15.7C41.8 16.6 43.8 18.1 45.6 19.7C47.3 21.4 48.9 23.4 50 25.5C51.2 27.7 52.1 30.3 52.2 32.8Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity=".95"/><path d="M59.6 32.3C59.4 35.8 58.1 39.4 56.6 42.5C55 45.5 52.7 48.2 50.2 50.5C47.8 52.8 45 54.8 41.9 56.3C38.9 57.7 35.4 59 32 59.3C28.6 59.7 24.6 59.4 21.3 58.2C17.9 57 14.5 54.8 12.1 52.2C9.7 49.6 7.9 46.1 6.8 42.8C5.7 39.4 5.3 35.7 5.5 32.3C5.7 28.9 6.4 25.4 7.7 22.2C9 19.1 10.8 15.9 13.2 13.5C15.5 11 18.6 8.8 21.7 7.5C24.9 6.1 28.6 5.4 32 5.4C35.4 5.4 39.1 6.1 42.3 7.3C45.6 8.6 48.9 10.5 51.4 12.9C54 15.3 56.4 18.4 57.7 21.6C59.1 24.9 59.8 28.8 59.6 32.3Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".55"/><path d="M44.8 33C44.8 34.5 44.4 36.3 43.7 37.6C43.1 39 42 40.4 40.9 41.4C39.7 42.3 38.2 42.9 36.8 43.3C35.4 43.8 33.9 44.1 32.5 44.2C31.1 44.2 29.4 44.2 28.1 43.6C26.8 43 25.7 41.8 24.7 40.8C23.8 39.7 23.3 38.4 22.6 37.1C22 35.8 21.1 34.5 20.9 33C20.6 31.5 20.5 29.7 21 28.2C21.5 26.8 22.5 25.2 23.7 24.2C24.8 23.1 26.4 22.2 27.9 21.8C29.3 21.5 31.1 21.8 32.5 22.1C33.9 22.4 35 23.3 36.3 23.8C37.6 24.4 38.9 24.7 40.1 25.4C41.3 26.2 42.8 27.1 43.6 28.4C44.4 29.7 44.8 31.5 44.8 33Z" fill="currentColor"/></svg><b>树洞</b> · 到点自动消失</span>
+    <span><svg class="logo" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M52.2 32.8C52.4 35.3 52 38.2 51 40.5C50 42.7 48.1 45 46.2 46.5C44.3 48.1 41.8 49.1 39.5 49.8C37.2 50.5 34.8 50.7 32.5 50.7C30.2 50.7 27.7 50.5 25.5 49.8C23.2 49.1 20.7 48 18.9 46.4C17 44.9 15.2 42.6 14.2 40.4C13.2 38.1 12.8 35.3 12.9 32.8C13 30.3 13.8 27.7 14.9 25.5C15.9 23.3 17.4 21.2 19.2 19.5C20.9 17.8 23.1 16.3 25.3 15.4C27.5 14.4 30.1 13.9 32.5 14C34.9 14 37.4 14.7 39.6 15.7C41.8 16.6 43.8 18.1 45.6 19.7C47.3 21.4 48.9 23.4 50 25.5C51.2 27.7 52.1 30.3 52.2 32.8Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity=".95"/><path d="M59.6 32.3C59.4 35.8 58.1 39.4 56.6 42.5C55 45.5 52.7 48.2 50.2 50.5C47.8 52.8 45 54.8 41.9 56.3C38.9 57.7 35.4 59 32 59.3C28.6 59.7 24.6 59.4 21.3 58.2C17.9 57 14.5 54.8 12.1 52.2C9.7 49.6 7.9 46.1 6.8 42.8C5.7 39.4 5.3 35.7 5.5 32.3C5.7 28.9 6.4 25.4 7.7 22.2C9 19.1 10.8 15.9 13.2 13.5C15.5 11 18.6 8.8 21.7 7.5C24.9 6.1 28.6 5.4 32 5.4C35.4 5.4 39.1 6.1 42.3 7.3C45.6 8.6 48.9 10.5 51.4 12.9C54 15.3 56.4 18.4 57.7 21.6C59.1 24.9 59.8 28.8 59.6 32.3Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".55"/><path d="M44.8 33C44.8 34.5 44.4 36.3 43.7 37.6C43.1 39 42 40.4 40.9 41.4C39.7 42.3 38.2 42.9 36.8 43.3C35.4 43.8 33.9 44.1 32.5 44.2C31.1 44.2 29.4 44.2 28.1 43.6C26.8 43 25.7 41.8 24.7 40.8C23.8 39.7 23.3 38.4 22.6 37.1C22 35.8 21.1 34.5 20.9 33C20.6 31.5 20.5 29.7 21 28.2C21.5 26.8 22.5 25.2 23.7 24.2C24.8 23.1 26.4 22.2 27.9 21.8C29.3 21.5 31.1 21.8 32.5 22.1C33.9 22.4 35 23.3 36.3 23.8C37.6 24.4 38.9 24.7 40.1 25.4C41.3 26.2 42.8 27.1 43.6 28.4C44.4 29.7 44.8 31.5 44.8 33Z" fill="currentColor"/></svg><b>树洞</b> · 到点自动消失<i class="dot" id="dot" title="读取正常"></i></span>
     <a href="#" id="aboutLink">这是什么？</a>
   </p>
   <nav class="channels" aria-label="频道">
@@ -198,6 +206,13 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   let records = [], seq = 0;
   let channel = 'wall', sig = null, loading = false; // sig：上次结果的指纹，没变就不重绘
   let lastDns = [], pending = []; // lastDns：DNS 最近一次返回的帖子；pending：自己刚发、DNS 还没看到的帖子
+  let known = null; // 当前频道上次画过的记录指纹集合；null 表示刚切进来，第一屏不算「新帖」
+
+  // 头部的状态点
+  const dot = $('#dot');
+  function pulse(cls){ dot.classList.remove(cls); void dot.offsetWidth; dot.classList.add(cls); } // 重新触发动画
+  dot.addEventListener('animationend', () => dot.classList.remove('poll', 'new'));
+  function dotOk(ok){ dot.classList.toggle('err', !ok); dot.title = ok ? '读取正常' : '读取失败'; }
   const POLL_MS = 5000;
   const SENTINEL = 'tree0'; // zone 里 *.BASE_NAME 的通配兜底记录，只为避免 NXDOMAIN 负缓存，不显示
   // 频道空着时随机挑一句招呼人来写，别用「还没有帖子」这种干巴巴的陈述
@@ -288,7 +303,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
       if(!quiet){ const i = $('#channel'); i.setCustomValidity('只允许小写字母、数字和连字符，最多 20 个'); i.reportValidity(); }
       return false;
     }
-    if(v !== channel){ channel = v; sig = null; lastDns = []; pending = []; }
+    if(v !== channel){ channel = v; sig = null; lastDns = []; pending = []; known = null; }
     recent = [v, ...recent.filter(x => x!==v)].slice(0, 8); saveRecent(); // 最近用过的排前面
     renderChips();
     const want = v==='wall' ? '' : '#' + v; // 默认频道不占地址栏
@@ -432,6 +447,8 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     const nsig = sortMode + '\n' + merged.map(r=>r.raw).join('\n');
     if(nsig === sig) return; // 内容没变就不重绘，否则每 5 秒闪一次
     sig = nsig;
+    if(known && merged.some(r => r.isPost && !known.has(r.raw))) pulse('new'); // 来了没见过的帖子，状态点亮一下
+    known = new Set(merged.map(r => r.raw));
     merged.forEach(r=>{ r.id = ++seq; });
     records = merged;
     render();
@@ -460,6 +477,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   async function load(){
     if(loading) return; // 上一轮还没回来就跳过这轮
     loading = true;
+    pulse('poll'); // 每次去问解析器，状态点闪一下
     const name = fqdn();
     try{
       const answers = await doh(name);
@@ -473,9 +491,11 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
       }
       apply();
       statusEl.textContent = ''; // 成功就清掉之前的错误提示
+      dotOk(true);
     }catch(err){
-      // 轮询里的偶发失败不清空列表，只在状态行提示
+      // 轮询里的偶发失败不清空列表，只在状态行提示，状态点变红
       statusEl.textContent = '读取失败：' + err.message;
+      dotOk(false);
     }finally{ loading = false; }
   }
 
@@ -516,10 +536,10 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   }
   // 邀请码有存活时长上限：超过的选项灰掉；选中的超了就退到允许的最长一档
   // 只列出这个码允许的档位，超过上限的根本不出现；原来选的还在就保留，否则退到允许的最长一档
-  const DEFAULT_MAX_TTL = 120; // 没填邀请码时只给 1、2 分钟
+  const DEFAULT_MAX_TTL = 300; // 没填邀请码时只给 2、5 分钟
   function buildTtlOptions(max){
     const sel = $('#ttl');
-    const prev = sel.value || '60';
+    const prev = sel.value || '120';
     const allowed = CFG.ttlOptions.filter(t => max == null || t <= max);
     sel.innerHTML = allowed.map(t => '<option value="'+t+'">'+ttlLabel(t)+'</option>').join('');
     sel.value = allowed.includes(Number(prev)) ? prev : String(allowed[allowed.length-1]);
@@ -528,7 +548,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   const applyTtlLimit = buildTtlOptions;
   async function checkInvite(){
     const code = $('#invite').value.trim();
-    if(!code){ $('#inviteLeft').textContent=''; buildTtlOptions(DEFAULT_MAX_TTL); return; } // 没填码就退回最短的两档
+    if(!code){ $('#inviteLeft').textContent=''; buildTtlOptions(DEFAULT_MAX_TTL); return; } // 没填码就退回 2、5 分钟
     try{
       const r = await fetch('/api/invite/check', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({invite: code})});
       showLeft(await r.json());
@@ -585,7 +605,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     $('#maxBytes').textContent = CFG.maxBytes;
     $('#text').placeholder = pick(PLACEHOLDERS);
     autoNick = pick(NICKS); $('#nick').value = autoNick;
-    buildTtlOptions(DEFAULT_MAX_TTL); // 没填邀请码时只列 1、2 分钟，默认 1 分钟；填了码再按码放开
+    buildTtlOptions(DEFAULT_MAX_TTL); // 没填邀请码时只列 2、5 分钟，默认 2 分钟；填了码再按码放开
     const textEl = $('#text');
     textEl.addEventListener('keydown', e=>{ // 回车即发送
       if(e.key !== 'Enter') return;

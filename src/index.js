@@ -9,8 +9,9 @@ export { PostGate } from './gate.js';
 
 const MAX_BYTES = 255;
 const PREFIX = 'tree1';
-// 和 Cloudflare DNS 面板的 TTL 选项一致（去掉 Auto）：1/2/5/10/15/30 分钟、1/2/5/12 小时、1 天
-const ALLOWED_TTL = [60, 120, 300, 600, 900, 1800, 3600, 7200, 18000, 43200, 86400];
+// 和 Cloudflare DNS 面板的 TTL 选项一致（去掉 Auto 和 1 分钟）：2/5/10/15/30 分钟、1/2/5/12 小时、1 天
+// 1 分钟去掉是因为实测别人要 20–60 秒才看得到（解析器把 60 秒的答案缓存满），一分钟的帖子几乎没人来得及看
+const ALLOWED_TTL = [120, 300, 600, 900, 1800, 3600, 7200, 18000, 43200, 86400];
 const NICK_RE = /^[a-zA-Z0-9_\u4e00-\u9fa5-]{1,12}$/;
 const CHANNEL_RE = /^[a-z0-9-]{1,20}$/;
 
@@ -68,7 +69,7 @@ async function handleAdmin(request, env, url) {
     if (!Number.isInteger(quota) || quota < 1 || quota > 10000) return json({ error: 'quota 要是 1–10000 的整数' }, 400);
     if (!Number.isInteger(count) || count < 1 || count > 50) return json({ error: 'count 要是 1–50 的整数' }, 400);
     const note = String(body.note || '').slice(0, 60);
-    const maxTtl = Number(body.maxTtl ?? 60); // 这个码最长能发多久的帖子，默认 60 秒
+    const maxTtl = Number(body.maxTtl ?? 120); // 这个码最长能发多久的帖子，默认 2 分钟
     if (!ALLOWED_TTL.includes(maxTtl)) return json({ error: `maxTtl 要是 ${ALLOWED_TTL.join('/')} 之一` }, 400);
     return json({ invites: await g.issue({ quota, count, note, maxTtl }) });
   }
