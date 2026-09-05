@@ -13,7 +13,7 @@
   // 非机密配置。机密（CF_API_TOKEN、INVITE_CODES）用 wrangler secret put。
   "vars": {
     // 所有帖子挂在这个名字下面。建议单独一个域名，别和正经业务共用 zone。
-    "BASE_NAME": "t.example.com",
+    "BASE_NAME": "t.dnor.org",
     // 记录 comment 的前缀，用来把本项目的记录和 zone 里其他记录隔开
     "RECORD_TAG": "treehole",
     // 记录数上限。免费版 zone（2024-09-01 后新建）总共只有 200 条，这里留缓冲。
