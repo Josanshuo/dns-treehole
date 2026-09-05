@@ -157,7 +157,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
 
   <div class="row">
     <input class="s" id="nick" maxlength="12" spellcheck="false" aria-label="署名" placeholder="署名">
-    <input class="s" id="invite" type="password" spellcheck="false" autocomplete="off" aria-label="邀请码" placeholder="邀请码">
+    <input class="s" id="invite" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="邀请码" placeholder="邀请码">
     <span class="left" id="inviteLeft" role="status"></span>
     <label for="ttl">存活</label>
     <select id="ttl"></select>
@@ -330,11 +330,6 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
 
   const clock = s => s<60 ? s+' 秒'
     : Math.floor(s/60)+' 分 '+String(s%60).padStart(2,'0')+' 秒';
-  function hhmmss(ts){
-    const d=new Date(ts*1000), p=n=>String(n).padStart(2,'0');
-    return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
-  }
-
   // 正文里的 http(s) 链接变成可点的 <a>：新标签打开；nofollow/ugc 不给对方算外链；noreferrer 不带来源
   // 链接遇到空格、中文或中文标点就停，句尾的英文标点也不算进去。只认 http(s)，所以不可能塞进 javascript:
   const URL_RE = /https?:\/\/[^\s<>"'`{}|\\^\[\]　-〿一-鿿＀-￯]+/g;
@@ -377,7 +372,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
       const meta = document.createElement('div');
       meta.className = 'meta';
       meta.innerHTML = r.isPost
-        ? '<span class="who fade">'+esc(r.who)+'</span><span class="fade">'+hhmmss(r.created)+'</span>'
+        ? '<span class="who fade">'+esc(r.who)+'</span>'
         : '<span>TXT · '+bytes(r.raw)+' 字节</span>';
       const ttlEl = document.createElement('span');
       ttlEl.className = 'ttl';
@@ -513,9 +508,10 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   }
   // 邀请码有存活时长上限：超过的选项灰掉；选中的超了就退到允许的最长一档
   // 只列出这个码允许的档位，超过上限的根本不出现；原来选的还在就保留，否则退到允许的最长一档
+  const DEFAULT_MAX_TTL = 120; // 没填邀请码时只给 1、2 分钟
   function buildTtlOptions(max){
     const sel = $('#ttl');
-    const prev = sel.value || '300';
+    const prev = sel.value || '60';
     const allowed = CFG.ttlOptions.filter(t => max == null || t <= max);
     sel.innerHTML = allowed.map(t => '<option value="'+t+'">'+ttlLabel(t)+'</option>').join('');
     sel.value = allowed.includes(Number(prev)) ? prev : String(allowed[allowed.length-1]);
@@ -524,7 +520,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   const applyTtlLimit = buildTtlOptions;
   async function checkInvite(){
     const code = $('#invite').value.trim();
-    if(!code){ showLeft({unlimited:true}); return; }
+    if(!code){ $('#inviteLeft').textContent=''; buildTtlOptions(DEFAULT_MAX_TTL); return; } // 没填码就退回最短的两档
     try{
       const r = await fetch('/api/invite/check', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({invite: code})});
       showLeft(await r.json());
@@ -581,7 +577,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     $('#maxBytes').textContent = CFG.maxBytes;
     $('#text').placeholder = pick(PLACEHOLDERS);
     autoNick = pick(NICKS); $('#nick').value = autoNick;
-    buildTtlOptions(null); // 先列全，填了有上限的邀请码再收窄；默认选 5 分钟
+    buildTtlOptions(DEFAULT_MAX_TTL); // 没填邀请码时只列 1、2 分钟，默认 1 分钟；填了码再按码放开
     const textEl = $('#text');
     textEl.addEventListener('keydown', e=>{ // 回车即发送
       if(e.key !== 'Enter') return;

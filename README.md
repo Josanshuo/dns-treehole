@@ -143,7 +143,7 @@ curl https://<你的域名>/api/admin/invites -H "Authorization: Bearer $ADMIN_K
 curl -X DELETE https://<你的域名>/api/admin/invites/<code> -H "Authorization: Bearer $ADMIN_KEY"
 ```
 
-前端填完邀请码会显示「还剩 N 条」，存活时长下拉里只列这个码允许的档位；发布后响应里也带 `left` 和 `maxTtl`（静态码为 `null`）。额度用完返回 403「这个邀请码的额度用完了」，存活时长超了返回 400。
+前端没填邀请码时存活时长下拉只列 1、2 分钟；填完邀请码会显示「还剩 N 条」，下拉改为只列这个码允许的档位（静态码列全）；发布后响应里也带 `left` 和 `maxTtl`（静态码为 `null`）。额度用完返回 403「这个邀请码的额度用完了」，存活时长超了返回 400。
 
 ---
 
