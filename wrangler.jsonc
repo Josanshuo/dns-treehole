@@ -23,19 +23,14 @@
     // 记录 comment 的前缀，用来把本项目的记录和 zone 里其他记录隔开
     "RECORD_TAG": "treehole",
     // 记录数上限。免费版 zone（2024-09-01 后新建）总共只有 200 条，这里留缓冲。
-    "RECORD_CAP": "180",
-    // 每轮对账最多删多少条，防止烧光 1200/5min 的 API 额度
-    "SWEEP_BUDGET": "40"
+    "RECORD_CAP": "180"
   },
 
   "durable_objects": {
     "bindings": [
       {
-        "name": "POST_REAPER",
-        "class_name": "PostReaper"
-      },
-      {
-        // 全站唯一实例，把「计数 → 腾位 → 建记录」串行化，并发发帖不会冲过上限
+        // 全站唯一实例：把「计数 → 腾位 → 建记录」串行化，并发发帖不会冲过上限；
+        // 记着每条记录的台账，到点按批删除
         "name": "POST_GATE",
         "class_name": "PostGate"
       }
@@ -51,6 +46,12 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["PostGate"]
+    },
+    {
+      // 每帖一个闹钟的 PostReaper 被 PostGate 的台账 + 批量删除取代。
+      // 升级时它手里还没响的闹钟会丢，那些记录由 cron 对账在过期后一分钟内删掉。
+      "tag": "v3",
+      "deleted_classes": ["PostReaper"]
     }
   ],
 

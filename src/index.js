@@ -1,6 +1,5 @@
-import { deleteRecord, listOurTxt } from './dns.js';
+import { listOurTxt, expiryOf } from './dns.js';
 
-export { PostReaper } from './reaper.js';
 export { PostGate } from './gate.js';
 
 /* ---------- 记录格式 ---------- */
@@ -122,7 +121,7 @@ async function handlePost(request, env) {
   // 而且 zone 里的其他记录也计入配额，所以留了缓冲。
   // 满了不让人等：把最接近过期的那条提前删掉腾位置。
   // 计数 / 腾位 / 建记录必须一起串行执行，否则并发发帖会冲过上限，
-  // 所以交给全站唯一的 PostGate 实例排队做。
+  // 所以交给全站唯一的 PostGate 实例排队做；它记着台账，到点也由它批量删。
   const res = await gate(env).create({
     invite: code,
     unlimited,
@@ -130,6 +129,7 @@ async function handlePost(request, env) {
     content: content.replace(/\\/g, '\\\\'), // 反斜杠按 master-file 写法转义，不然 API 会把 \x 当转义序列吃掉
     ttl: RECORD_TTL, // DNS 缓存时长固定 60 秒，和帖子寿命无关；寿命写在内容里，靠删除和前端倒计时生效
     comment: `${env.RECORD_TAG}:${expiresAt}`,
+    expiresAt,
     cap: Number(env.RECORD_CAP || 180),
   });
   if (!res.ok) {
@@ -140,14 +140,6 @@ async function handlePost(request, env) {
     }, res.status);
   }
   const { recordId, evicted, left, maxTtl } = res;
-
-  // 设闹钟。失败也没关系，cron 会兜底。
-  try {
-    const stub = env.POST_REAPER.get(env.POST_REAPER.idFromName(recordId));
-    await stub.schedule(recordId, expiresAt);
-  } catch (err) {
-    console.error('闹钟设置失败，等 cron 兜底', recordId, err.message);
-  }
 
   return json({
     ok: true,
@@ -166,13 +158,14 @@ async function handlePost(request, env) {
 /* ---------- 兜底对账 ---------- */
 
 /**
- * 每分钟扫一遍，删掉所有已过期但还在的记录。
+ * 每分钟把 zone 里的实际记录列一遍，交给 PostGate 校正台账、删掉已过期的。
  *
- * DNS 记录是 Worker 之外的状态：DO 挂了、闹钟丢了、API 调用连续失败，
- * 都没人收尸。这个循环让系统自愈。
+ * DNS 记录是 Worker 之外的状态：DO 挂了、闹钟丢了、API 调用连续失败、
+ * 有人在面板上手删，台账都会和实际脱节。这个循环让系统自愈。
+ * 每轮固定 1 次列表调用，有过期记录时再加 1 次批量删除。
  */
 async function sweep(env) {
-  const now = Date.now();
+  const listedAt = Date.now();
   let records;
   try {
     records = await listOurTxt(env);
@@ -181,27 +174,13 @@ async function sweep(env) {
     return;
   }
 
-  const expired = records.filter((r) => {
-    const at = Number((r.comment || '').split(':')[1]);
-    return Number.isFinite(at) && at <= now;
-  });
+  const ours = records
+    .map((r) => ({ id: r.id, name: r.name, expiresAt: expiryOf(r) }))
+    .filter((r) => r.expiresAt != null);
 
-  // Cloudflare 没有批量删除接口，一条一次调用。
-  // 每轮设上限，避免把 1200/5min 的额度烧光。
-  const budget = Number(env.SWEEP_BUDGET || 40);
-  let done = 0;
-  for (const r of expired.slice(0, budget)) {
-    try {
-      await deleteRecord(env, r.id);
-      done++;
-    } catch (err) {
-      if (err.status === 429) break; // 限流就停，下一分钟继续
-      console.error('删除失败', r.id, err.message);
-    }
-  }
-
-  if (expired.length) {
-    console.log(`对账：过期 ${expired.length} 条，本轮删除 ${done} 条`);
+  const { removed, added, live, due, gone } = await gate(env).reconcile(ours, listedAt);
+  if (removed || added || due) {
+    console.log(`对账：台账删 ${removed} 补 ${added}，过期 ${due} 条删除 ${gone} 条，现存 ${live} 条`);
   }
 }
 

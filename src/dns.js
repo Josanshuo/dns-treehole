@@ -2,10 +2,14 @@
  * Cloudflare DNS API 的最小封装。
  *
  * 全局速率限制是 1200 次 / 5 分钟，按用户累计，dashboard 操作也吃同一份额度。
- * 这里每条帖子消耗 2 次（建 + 删），所以理论上限约 600 条 / 5 分钟。
+ * 每条帖子只消耗 1 次（建记录）；删除按批合并成一次调用，计数和挑腾位对象
+ * 都查 PostGate 自己的台账，不问 API。
  */
 
 const API = 'https://api.cloudflare.com/client/v4';
+
+// batch 接口一次最多处理多少条记录（免费版 200，付费档 3500）
+const BATCH_MAX = 200;
 
 class DnsError extends Error {
   constructor(message, status, errors) {
@@ -59,7 +63,7 @@ export async function createTxt(env, { name, content, ttl, comment }) {
 
 /**
  * 删一条记录。幂等：记录已不存在时视为成功。
- * DO 闹钟在极少数情况下会重复触发，所以这里必须幂等。
+ * 腾位时台账里的记录可能已经被人在面板上手删了，所以这里必须幂等。
  */
 export async function deleteRecord(env, recordId) {
   try {
@@ -73,6 +77,37 @@ export async function deleteRecord(env, recordId) {
   }
 }
 
+/**
+ * 一次调用删一批记录（batch 接口各档位都能用）。返回确认已不存在的记录 ID。
+ *
+ * 批里只要有一条失败整批都不生效（比如某条已经被删过了），这时退回逐条删，
+ * 逐条是幂等的。限流或网络故障则立刻停手，把已确认的部分返回，让调用方稍后再试。
+ */
+export async function batchDelete(env, ids) {
+  const gone = [];
+  for (let i = 0; i < ids.length; i += BATCH_MAX) {
+    const chunk = ids.slice(i, i + BATCH_MAX);
+    try {
+      await call(env, 'POST', '/dns_records/batch', { deletes: chunk.map((id) => ({ id })) });
+      gone.push(...chunk);
+      continue;
+    } catch (err) {
+      if (!(err instanceof DnsError) || err.status === 429) return gone;
+      console.error('批量删除整批失败，改为逐条', err.message);
+    }
+    for (const id of chunk) {
+      try {
+        await deleteRecord(env, id);
+        gone.push(id);
+      } catch (err) {
+        if (!(err instanceof DnsError) || err.status === 429) return gone;
+        console.error('删除失败', id, err.message);
+      }
+    }
+  }
+  return gone;
+}
+
 /** 列出本项目建的所有 TXT 记录（靠 comment 前缀区分，不碰 zone 里的其他记录）。 */
 export async function listOurTxt(env) {
   const out = [];
@@ -80,7 +115,7 @@ export async function listOurTxt(env) {
   for (;;) {
     const qs = new URLSearchParams({
       type: 'TXT',
-      per_page: '100',
+      per_page: '500',
       page: String(page),
       'comment.startswith': env.RECORD_TAG,
     });
@@ -89,42 +124,15 @@ export async function listOurTxt(env) {
     const info = json.result_info || {};
     if (!info.total_pages || page >= info.total_pages) break;
     page++;
-    if (page > 20) break; // 安全阀，别把限流额度烧光
+    if (page > 5) break; // 安全阀，别把限流额度烧光
   }
   return out;
 }
 
-/** 从我们的记录里挑出最接近过期的那条（comment 形如 RECORD_TAG:<过期毫秒时间戳>）。 */
-export function soonestExpiring(records) {
-  let best = null;
-  for (const r of records) {
-    const at = Number((r.comment || '').split(':')[1]);
-    if (!Number.isFinite(at)) continue;
-    if (!best || at < best.at) best = { at, record: r };
-  }
-  return best ? best.record : null;
-}
-
-/**
- * 记录满了就把最接近过期的那条提前删掉腾位置，而不是让人等。
- * 返回被删的记录；没有可删的返回 null。
- */
-export async function evictSoonest(env) {
-  const victim = soonestExpiring(await listOurTxt(env));
-  if (!victim) return null;
-  await deleteRecord(env, victim.id);
-  return victim;
-}
-
-/** 当前占用的记录数，用于卡住 200 条上限。 */
-export async function countOurTxt(env) {
-  const qs = new URLSearchParams({
-    type: 'TXT',
-    per_page: '1',
-    'comment.startswith': env.RECORD_TAG,
-  });
-  const json = await call(env, 'GET', `/dns_records?${qs}`);
-  return json.result_info?.total_count ?? 0;
+/** 从记录 comment（RECORD_TAG:<过期毫秒时间戳>）里取过期时间；解析不出返回 null。 */
+export function expiryOf(record) {
+  const at = Number((record.comment || '').split(':')[1]);
+  return Number.isFinite(at) ? at : null;
 }
 
 export { DnsError };

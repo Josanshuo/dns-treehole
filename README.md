@@ -2,9 +2,9 @@
 
 拿 DNS 的 TXT 记录当数据库的匿名即焚留言板。跑在 Cloudflare Workers 上。
 
-- **写**：Worker 校验邀请码 → 建 TXT 记录 → Durable Object 设一个到点删除的闹钟
+- **写**：Worker 校验邀请码 → 建 TXT 记录 → 记进 Durable Object 的台账
 - **读**：浏览器直接走 DoH 问 `1.1.1.1`，不经过 Worker，不消耗任何额度
-- **焚**：DO 闹钟精确删除，外加每分钟一次的 cron 兜底对账
+- **焚**：DO 闹钟到点把过期记录攒成一批删掉，外加每分钟一次的 cron 兜底对账
 
 同一份数据在命令行里也能读：
 
@@ -19,22 +19,25 @@ dig wall.t.example.com TXT +short
 ```
 POST /api/post
   Worker ─ 校验邀请码 / 字节数
-         ├→ DO(gate).create()   全站单实例、串行：计数 → 满了挤掉最接近过期的 → 建 TXT 记录
-         └→ DO(recordId).schedule(expiresAt)   闹钟，毫秒级
+         └→ DO(gate).create()   全站单实例、串行：
+              查台账计数 → 满了删掉台账里最接近过期的 → 建 TXT 记录（唯一一次 API 调用）
+              → 记进台账 → 闹钟拨到最早过期的那条
 
-DO.alarm()
-  └→ DELETE 该记录（幂等：404 视为成功）
-     失败则指数退避重试，最多 6 次
+DO(gate).alarm()
+  └→ 把台账里到点的（含 2 秒内即将到点的）记录一次 batch 删掉（幂等：整批失败退回逐条，404 视为成功）
+     失败则 1 分钟后再试，闹钟拨到下一条
 
 cron * * * * *
-  └→ 列出所有 comment 以 RECORD_TAG 开头的记录
-     删掉已过期的（每轮上限 SWEEP_BUDGET 条）
+  └→ 列出所有 comment 以 RECORD_TAG 开头的记录（1 次调用）
+     交给 DO(gate).reconcile()：台账和实际对齐，已过期的批量删掉
 
 GET /
   静态页 → 前端自己发 DoH 查询
 ```
 
-**为什么要两套删除？** DNS 记录是 Worker 之外的状态。DO 挂了、闹钟丢了、API 连续限流，都没人收尸。cron 对账让系统自愈。
+**为什么要台账？** 数一下、挑最接近过期的、到点删除，原本各要问一次 API；台账让每条帖子只花 1 次调用（建记录），到点的记录攒成一批一次删。
+
+**为什么还要 cron 对账？** DNS 记录是 Worker 之外的状态。DO 挂了、闹钟丢了、API 连续限流、有人在面板上手删，台账都会和实际脱节，没人收尸。cron 用 API 列表把台账校正一遍，让系统自愈。
 
 ---
 
@@ -152,7 +155,7 @@ curl -X DELETE https://<你的域名>/api/admin/invites/<code> -H "Authorization
 | 限制 | 数值 | 影响 |
 |------|------|------|
 | 记录数 / zone | **200**（2024-09-01 后新建的免费 zone）<br>1,000（更早的免费 zone）· 3,500（Pro） | 同时存活的帖子总数 |
-| API 速率 | 1,200 次 / 5 分钟，按**用户**累计 | 每帖 2 次调用 → 约 600 帖 / 5 分钟 |
+| API 速率 | 1,200 次 / 5 分钟，按**用户**累计 | 每帖 1 次调用（建记录），删除按批合并，对账每分钟 1–2 次 → 约 900 帖 / 5 分钟 |
 | cron 触发器 | 免费版每账号 5 个 | 本项目只用 1 个 |
 | cron 精度 | 最细每分钟 | 兜底延迟，主删除靠 DO 闹钟 |
 | Durable Objects | 免费版仅 SQLite 存储后端 | 已用 `new_sqlite_classes` |
@@ -165,7 +168,7 @@ curl "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/usage" 
 # → result.record_quota / result.record_usage
 ```
 
-**关于 API 额度**：dashboard 上的手工操作吃的是同一份额度。一边调试一边点面板，可能自己把自己限流。
+**关于 API 额度**：dashboard 上的手工操作吃的是同一份额度。一边调试一边点面板，可能自己把自己限流。到点删除攒批的窗口是 2 秒（`REAP_WINDOW_MS`），帖子最多提前 2 秒消失；发帖越密，一批删得越多，调用次数不随帖子数线性涨。
 
 ---
 
@@ -187,7 +190,7 @@ curl "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/usage" 
 | 发布返回 502 | 令牌权限是否为 `Zone / DNS / Edit`，Zone ID 是否正确 |
 | 发布返回 503 | 记录数到上限且没有可挤掉的帖子（正常情况下满了会自动删掉最接近过期的一条）；看 `wrangler tail`，或调高 `RECORD_CAP` |
 | 发布成功但读不到 | 等 TTL 秒；或 `dig @1.1.1.1 <name> TXT` 直接确认权威侧 |
-| 帖子过期了还在 | 看 `wrangler tail` 里的对账日志；DO 闹钟可能连续失败了 |
+| 帖子过期了还在 | 看 `wrangler tail` 里的对账日志（「台账删 / 补」「过期 N 条删除 M 条」）；到点删除可能连续被限流，对账会在过期后一分钟内补删 |
 | 429 | 五分钟内的 API 调用超了，包括你在 dashboard 上的操作 |
 
 ```bash
