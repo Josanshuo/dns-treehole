@@ -9,7 +9,8 @@ export { PostGate } from './gate.js';
 
 const MAX_BYTES = 255;
 const PREFIX = 'tree1';
-const ALLOWED_TTL = [60, 300, 900, 3600, 21600, 86400];
+// 和 Cloudflare DNS 面板的 TTL 选项一致（去掉 Auto）：1/2/5/10/15/30 分钟、1/2/5/12 小时、1 天
+const ALLOWED_TTL = [60, 120, 300, 600, 900, 1800, 3600, 7200, 18000, 43200, 86400];
 const NICK_RE = /^[a-zA-Z0-9_\u4e00-\u9fa5-]{1,12}$/;
 const CHANNEL_RE = /^[a-z0-9-]{1,20}$/;
 
@@ -67,7 +68,9 @@ async function handleAdmin(request, env, url) {
     if (!Number.isInteger(quota) || quota < 1 || quota > 10000) return json({ error: 'quota 要是 1–10000 的整数' }, 400);
     if (!Number.isInteger(count) || count < 1 || count > 50) return json({ error: 'count 要是 1–50 的整数' }, 400);
     const note = String(body.note || '').slice(0, 60);
-    return json({ invites: await g.issue({ quota, count, note }) });
+    const maxTtl = Number(body.maxTtl ?? 60); // 这个码最长能发多久的帖子，默认 60 秒
+    if (!ALLOWED_TTL.includes(maxTtl)) return json({ error: `maxTtl 要是 ${ALLOWED_TTL.join('/')} 之一` }, 400);
+    return json({ invites: await g.issue({ quota, count, note, maxTtl }) });
   }
   if (m[1] && request.method === 'DELETE') return json({ revoked: await g.revoke(m[1]) });
   return json({ error: '没有这个接口' }, 404);
@@ -125,8 +128,14 @@ async function handlePost(request, env) {
     comment: `${env.RECORD_TAG}:${expiresAt}`,
     cap: Number(env.RECORD_CAP || 180),
   });
-  if (!res.ok) return json({ error: res.message, ...(res.left != null && { left: res.left }) }, res.status);
-  const { recordId, evicted, left } = res;
+  if (!res.ok) {
+    return json({
+      error: res.message,
+      ...(res.left != null && { left: res.left }),
+      ...(res.maxTtl != null && { maxTtl: res.maxTtl }),
+    }, res.status);
+  }
+  const { recordId, evicted, left, maxTtl } = res;
 
   // 设闹钟。失败也没关系，cron 会兜底。
   try {
@@ -144,6 +153,7 @@ async function handlePost(request, env) {
     content, // 前端拿它先把自己的帖子垫上显示，等 DNS 返回同样的字符串再自然接管
     evicted, // 为了腾位置提前删了一条最接近过期的帖子
     left, // 这个邀请码还能发几条；null 表示不限量
+    maxTtl, // 这个邀请码最长能发多久的帖子；null 表示不限
     expiresAt: Math.floor(expiresAt / 1000),
     dig: `dig ${name} TXT +short`,
   });

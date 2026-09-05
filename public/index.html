@@ -58,6 +58,12 @@ button[disabled]{opacity:.4;cursor:default}
 main{border-top:1px solid var(--rule)}
 .status{font-family:var(--mono);font-size:12.5px;color:var(--gone);padding:12px 0 0}
 .status:empty{display:none}
+.sortbar{display:flex;justify-content:flex-end;gap:14px;padding:9px 0 0;font-family:var(--mono);font-size:12px}
+.sort{font:inherit;color:var(--ink-soft);background:transparent;border:none;border-radius:0;padding:2px 0;
+  border-bottom:1.5px solid transparent;cursor:pointer}
+.sort:hover{color:var(--live);background:transparent}
+.sort.on{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
+.sort:focus-visible{outline:2px solid var(--live);outline-offset:3px}
 #list{margin:0;padding:0;list-style:none}
 .rec{padding:22px 0 20px;border-bottom:1px solid var(--rule)}
 .rec .body{margin:0 0 10px;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -93,7 +99,6 @@ main{border-top:1px solid var(--rule)}
 .row button{margin-left:auto}
 .row .left{font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
 .row .left:empty{display:none}
-.row .left.out{color:var(--gone)}
 .result{font-family:var(--mono);font-size:12.5px;margin:14px 0 0;padding:10px 12px;
   background:var(--paper-deep);border-left:2px solid var(--live);display:none;overflow-wrap:anywhere}
 .result.err{border-left-color:var(--gone);color:var(--gone)}
@@ -137,6 +142,10 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
 </header>
 
 <main>
+  <div class="sortbar" role="group" aria-label="排序">
+    <button class="sort on" data-sort="new">最新</button>
+    <button class="sort" data-sort="soon">快过期</button>
+  </div>
   <div class="status" id="status"></div>
   <ul id="list"></ul>
 </main>
@@ -231,6 +240,17 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
 
   /* ---------- 频道 ---------- */
   const CHANNEL_RE = /^[a-z0-9-]{1,20}$/; // 和 Worker 里的一致
+  // 排序：最新在前（默认）或快过期在前，记在 localStorage
+  const SORT_KEY = 'treehole.sort';
+  let sortMode = 'new';
+  try{ if(localStorage.getItem(SORT_KEY) === 'soon') sortMode = 'soon'; }catch{}
+  function setSort(m){
+    sortMode = m;
+    try{ localStorage.setItem(SORT_KEY, m); }catch{}
+    document.querySelectorAll('.sort').forEach(b => b.classList.toggle('on', b.dataset.sort === m));
+    apply(); // 指纹里带着排序方式，换了就会重绘
+  }
+
   const LS_KEY = 'treehole.channels';
   let recent = [];
   try{ recent = (JSON.parse(localStorage.getItem(LS_KEY)) || []).filter(s => typeof s==='string' && CHANNEL_RE.test(s)); }catch{}
@@ -402,8 +422,11 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     const now = Math.floor(Date.now()/1000);
     pending = pending.filter(p => p.expires > now && !lastDns.some(r => r.raw === p.raw)); // DNS 看到了或已过期就不用再垫
     const merged = lastDns.concat(pending).filter(r => !r.isPost || r.expires > now); // 到点的直接不显示，哪怕解析器缓存里还有
-    merged.sort((a,b)=>(b.created||0)-(a.created||0)); // 顺序 DNS 不保证，客户端自己排
-    const nsig = merged.map(r=>r.raw).join('\n');
+    // 顺序 DNS 不保证，客户端自己排：最新在前，或者快过期的在前（非本站记录垫底）
+    const byNew = (a,b)=>(b.created||0)-(a.created||0);
+    const bySoon = (a,b)=>((a.isPost?a.expires:Infinity)-(b.isPost?b.expires:Infinity)) || byNew(a,b);
+    merged.sort(sortMode==='soon' ? bySoon : byNew);
+    const nsig = sortMode + '\n' + merged.map(r=>r.raw).join('\n');
     if(nsig === sig) return; // 内容没变就不重绘，否则每 5 秒闪一次
     sig = nsig;
     merged.forEach(r=>{ r.id = ++seq; });
@@ -470,14 +493,35 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   }
 
   // 邀请码还剩几条。静态码不限量，什么都不显示
+  const ttlLabel = t => t < 3600 ? (t/60)+' 分钟' : t < 86400 ? (t/3600)+' 小时' : (t/86400)+' 天';
+  // 邀请码旁边只放「还剩几条」这种信息；出错一律在下面的结果框里说，位置固定
+  const leftText = j => '还剩 '+j.left+' 条'; // 存活上限不用说，下拉里只列允许的档位就够了
+  function showError(msg){
+    const box = $('#result');
+    box.style.display='block'; box.className='result err'; box.textContent = msg;
+  }
   function showLeft(j){
     const el = $('#inviteLeft');
-    el.classList.remove('out');
-    if(j.unlimited || j.left == null && j.ok !== false){ el.textContent=''; return; }
-    if(j.left == null){ el.textContent='邀请码无效'; el.classList.add('out'); return; }
-    el.textContent = j.left > 0 ? '还剩 '+j.left+' 条' : '额度用完了';
-    if(j.left <= 0) el.classList.add('out');
+    applyTtlLimit(j.maxTtl != null ? j.maxTtl : null);
+    el.textContent = '';
+    if(j.unlimited || j.left == null && j.ok !== false) return;
+    if(j.left == null){ showError('邀请码无效'); return; }
+    if(j.ok === false){ showError('这个邀请码的额度用完了'); return; }
+    el.textContent = leftText(j);
+    const box = $('#result');
+    if(box.classList.contains('err')) box.style.display='none'; // 码换对了，把上一条邀请码错误收掉
   }
+  // 邀请码有存活时长上限：超过的选项灰掉；选中的超了就退到允许的最长一档
+  // 只列出这个码允许的档位，超过上限的根本不出现；原来选的还在就保留，否则退到允许的最长一档
+  function buildTtlOptions(max){
+    const sel = $('#ttl');
+    const prev = sel.value || '300';
+    const allowed = CFG.ttlOptions.filter(t => max == null || t <= max);
+    sel.innerHTML = allowed.map(t => '<option value="'+t+'">'+ttlLabel(t)+'</option>').join('');
+    sel.value = allowed.includes(Number(prev)) ? prev : String(allowed[allowed.length-1]);
+    updateBudget();
+  }
+  const applyTtlLimit = buildTtlOptions;
   async function checkInvite(){
     const code = $('#invite').value.trim();
     if(!code){ showLeft({unlimited:true}); return; }
@@ -502,11 +546,13 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
         }),
       });
       const j = await r.json();
-      if(r.status === 403){ // 邀请码的问题只在邀请码旁边说一次，结果框不再重复
-        showLeft(j.left != null ? j : {ok:false});
-        box.style.display='none'; $('#invite').focus(); return;
+      if(j.maxTtl !== undefined) applyTtlLimit(j.maxTtl); // 服务端说了上限就照办
+      if(!r.ok){
+        showError(j.error || ('HTTP '+r.status));
+        if(r.status === 403) $('#invite').focus(); // 邀请码的问题，把光标放回去
+        $('#inviteLeft').textContent = j.left > 0 ? leftText(j) : ''; // 额度还有就顺手更新旁边的数字，否则清掉旧的
+        return;
       }
-      if(!r.ok){ box.className='result err'; box.textContent = j.error || ('HTTP '+r.status); return; }
       if(j.left != null) showLeft(j);
       box.textContent = '已发布 · '+j.bytes+' 字节'
         + (j.left != null ? ' · 邀请码还剩 '+j.left+' 条' : '')
@@ -535,9 +581,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     $('#maxBytes').textContent = CFG.maxBytes;
     $('#text').placeholder = pick(PLACEHOLDERS);
     autoNick = pick(NICKS); $('#nick').value = autoNick;
-    $('#ttl').innerHTML = CFG.ttlOptions.map(t =>
-      '<option value="'+t+'"'+(t===300?' selected':'')+'>'+
-      (t<3600 ? t+' 秒' : (t/3600)+' 小时')+'</option>').join('');
+    buildTtlOptions(null); // 先列全，填了有上限的邀请码再收窄；默认选 5 分钟
     const textEl = $('#text');
     textEl.addEventListener('keydown', e=>{ // 回车即发送
       if(e.key !== 'Enter') return;
@@ -552,6 +596,10 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
     $('#ttl').addEventListener('change', updateBudget);
     $('#post').addEventListener('click', publish);
     $('#invite').addEventListener('change', checkInvite); // 填完邀请码就看看还剩几条
+    document.querySelectorAll('.sort').forEach(b => {
+      b.classList.toggle('on', b.dataset.sort === sortMode);
+      b.addEventListener('click', () => setSort(b.dataset.sort));
+    });
     const chIn = $('#channel');
     chIn.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.isComposing){ e.preventDefault(); if(setChannel(chIn.value)) chIn.value=''; } });
     chIn.addEventListener('input', ()=>chIn.setCustomValidity(''));

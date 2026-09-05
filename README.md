@@ -125,24 +125,25 @@ curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"
 两种邀请码：
 
 - **静态码**：`INVITE_CODES` secret 里逗号分隔，不限量，适合自己人。
-- **生成的码**：有额度（能发几条），用完即止。存在 `PostGate` DO 的 SQLite 里，扣额度和建记录在同一次排队里完成，记录没建成不扣。
+- **生成的码**：有额度（能发几条）和存活时长上限（最长能发多久的帖子，默认 60 秒），用完即止。存在 `PostGate` DO 的 SQLite 里，扣额度和建记录在同一次排队里完成，记录没建成不扣。
 
 生成、查看、作废都走管理接口，用 `ADMIN_KEY` 保护：
 
 ```bash
-# 生成 3 个各能发 20 条的码
+# 生成 3 个各能发 20 条、最长 1 小时的码
+# maxTtl 取存活时长选项之一（秒）：60/120/300/600/900/1800/3600/7200/18000/43200/86400，省略即 60
 curl -X POST https://<你的域名>/api/admin/invites \
   -H "Authorization: Bearer $ADMIN_KEY" -H "Content-Type: application/json" \
-  -d '{"quota":20,"count":3,"note":"给同事"}'
+  -d '{"quota":20,"count":3,"maxTtl":3600,"note":"给同事"}'
 
-# 看所有码的用量（quota / used / left）
+# 看所有码的用量（quota / used / left / maxTtl）
 curl https://<你的域名>/api/admin/invites -H "Authorization: Bearer $ADMIN_KEY"
 
 # 作废一个
 curl -X DELETE https://<你的域名>/api/admin/invites/<code> -H "Authorization: Bearer $ADMIN_KEY"
 ```
 
-前端填完邀请码会显示「还剩 N 条」，发布后响应里也带 `left`（静态码为 `null`）。额度用完返回 403「这个邀请码的额度用完了」。
+前端填完邀请码会显示「还剩 N 条」，存活时长下拉里只列这个码允许的档位；发布后响应里也带 `left` 和 `maxTtl`（静态码为 `null`）。额度用完返回 403「这个邀请码的额度用完了」，存活时长超了返回 400。
 
 ---
 

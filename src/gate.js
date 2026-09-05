@@ -1,6 +1,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import { createTxt, countOurTxt, evictSoonest, DnsError } from './dns.js';
 
+const ttlLabel = (t) => (t < 3600 ? `${t / 60} 分钟` : t < 86400 ? `${t / 3600} 小时` : `${t / 86400} 天`);
+
 // 邀请码字母表：去掉了 0/o、1/l/i 这些容易看混的字符
 const CODE_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 function randomCode(len = 10) {
@@ -30,13 +32,18 @@ export class PostGate extends DurableObject {
 
   constructor(ctx, env) {
     super(ctx, env);
-    ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS invites (
+    const sql = ctx.storage.sql;
+    sql.exec(`CREATE TABLE IF NOT EXISTS invites (
       code    TEXT PRIMARY KEY,
       quota   INTEGER NOT NULL,
       used    INTEGER NOT NULL DEFAULT 0,
       note    TEXT NOT NULL DEFAULT '',
-      created INTEGER NOT NULL
+      created INTEGER NOT NULL,
+      max_ttl INTEGER NOT NULL DEFAULT 60
     )`);
+    // 老表没有 max_ttl 列就补上；已有的码按默认 60 秒算
+    const cols = sql.exec('PRAGMA table_info(invites)').toArray().map((c) => c.name);
+    if (!cols.includes('max_ttl')) sql.exec('ALTER TABLE invites ADD COLUMN max_ttl INTEGER NOT NULL DEFAULT 60');
   }
 
   /* ---------- 邀请码 ---------- */
@@ -46,31 +53,31 @@ export class PostGate extends DurableObject {
     return this.ctx.storage.sql.exec('SELECT * FROM invites WHERE code = ?', String(code).toLowerCase()).toArray()[0] || null;
   }
 
-  /** 查一个码还剩多少：{ ok, quota, used, left }；不存在时 { ok:false }。 */
+  /** 查一个码还剩多少、最长能发多久：{ ok, quota, used, left, maxTtl }；不存在时 { ok:false }。 */
   check(code) {
     const r = this.#row(code);
     if (!r) return { ok: false };
-    return { ok: r.used < r.quota, quota: r.quota, used: r.used, left: Math.max(0, r.quota - r.used) };
+    return { ok: r.used < r.quota, quota: r.quota, used: r.used, left: Math.max(0, r.quota - r.used), maxTtl: r.max_ttl };
   }
 
-  /** 生成 count 个额度为 quota 的码。 */
-  issue({ quota, count = 1, note = '' }) {
+  /** 生成 count 个额度为 quota、最长存活 maxTtl 秒的码。 */
+  issue({ quota, count = 1, note = '', maxTtl = 60 }) {
     const now = Date.now();
     const out = [];
     for (let i = 0; i < count; i++) {
       const code = randomCode();
       this.ctx.storage.sql.exec(
-        'INSERT INTO invites (code, quota, used, note, created) VALUES (?, ?, 0, ?, ?)',
-        code, quota, note, now
+        'INSERT INTO invites (code, quota, used, note, created, max_ttl) VALUES (?, ?, 0, ?, ?, ?)',
+        code, quota, note, now, maxTtl
       );
-      out.push({ code, quota, used: 0, left: quota, note, created: now });
+      out.push({ code, quota, used: 0, left: quota, maxTtl, note, created: now });
     }
     return out;
   }
 
   list() {
     return this.ctx.storage.sql.exec('SELECT * FROM invites ORDER BY created DESC').toArray()
-      .map((r) => ({ ...r, left: Math.max(0, r.quota - r.used) }));
+      .map(({ max_ttl, ...r }) => ({ ...r, left: Math.max(0, r.quota - r.used), maxTtl: max_ttl }));
   }
 
   revoke(code) {
@@ -96,7 +103,14 @@ export class PostGate extends DurableObject {
     if (!unlimited) {
       row = this.#row(invite);
       if (!row) return { ok: false, status: 403, message: '邀请码无效' };
-      if (row.used >= row.quota) return { ok: false, status: 403, message: '这个邀请码的额度用完了', left: 0 };
+      if (row.used >= row.quota) return { ok: false, status: 403, message: '这个邀请码的额度用完了', left: 0, maxTtl: row.max_ttl };
+      if (ttl > row.max_ttl) {
+        return {
+          ok: false, status: 400,
+          message: `这个邀请码最长只能发 ${ttlLabel(row.max_ttl)}的帖子`,
+          left: row.quota - row.used, maxTtl: row.max_ttl,
+        };
+      }
     }
 
     let evicted = false;
@@ -115,7 +129,7 @@ export class PostGate extends DurableObject {
         this.ctx.storage.sql.exec('UPDATE invites SET used = used + 1 WHERE code = ?', row.code);
         left = row.quota - row.used - 1;
       }
-      return { ok: true, recordId, evicted, left };
+      return { ok: true, recordId, evicted, left, maxTtl: row ? row.max_ttl : null };
     } catch (err) {
       if (err instanceof DnsError) {
         if (err.status === 429) return { ok: false, status: 429, message: 'API 限流，稍后再试' };
