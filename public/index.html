@@ -58,24 +58,26 @@ button[disabled]{opacity:.4;cursor:default}
 main{border-top:1px solid var(--rule)}
 .status{font-family:var(--mono);font-size:12.5px;color:var(--gone);padding:12px 0 0}
 .status:empty{display:none}
-.sortbar{display:flex;justify-content:flex-end;gap:14px;padding:9px 0 0;font-family:var(--mono);font-size:12px}
+.sortbar{display:inline-flex;gap:12px;margin-left:16px;font-size:12px} /* 和频道同一行，帖子不到两条时藏起来 */
+.sortbar[hidden]{display:none}
 .sort{font:inherit;color:var(--ink-soft);background:transparent;border:none;border-radius:0;padding:2px 0;
   border-bottom:1.5px solid transparent;cursor:pointer}
 .sort:hover{color:var(--live);background:transparent}
 .sort.on{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
 .sort:focus-visible{outline:2px solid var(--live);outline-offset:3px}
 #list{margin:0;padding:0;list-style:none}
-.rec{padding:22px 0 20px;border-bottom:1px solid var(--rule)}
+.rec{padding:22px 0 0} /* 分隔线就是下面的进度条，不再画第二条线 */
 .rec .body{margin:0 0 10px;white-space:pre-wrap;overflow-wrap:anywhere}
-.rec .fade{transition:opacity .9s linear} /* 随剩余时间一起淡去的部分；倒计时和进度条不淡 */
+.rec .fade,.rec .fade-soft{transition:opacity .9s linear} /* 随剩余时间一起淡去的部分；倒计时和进度条不淡；署名淡得少一点 */
 .rec.post .body{font-size:19px;line-height:1.58;padding-left:15px;border-left:2px solid var(--rule)}
 .rec.raw .body{font-family:var(--mono);font-size:13px;line-height:1.7;color:var(--ink-soft)}
 .rec .meta{font-family:var(--mono);font-size:12px;color:var(--ink-soft);
   display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-.rec .who{color:var(--ink)} .rec .ttl{color:var(--live)}
+.rec .who{color:var(--ink)} .rec .ttl{color:var(--live);font-variant-numeric:tabular-nums}
+.rec.soon .ttl{color:var(--gone)} .rec.soon .decay i{background:var(--gone)} /* 最后 10 秒变红 */
 .rec .body a{color:var(--live);text-decoration:underline dotted;text-underline-offset:3px;overflow-wrap:anywhere}
 .rec .body a:hover{text-decoration-style:solid}
-.decay{height:2px;background:var(--rule);margin:12px 0 0;position:relative}
+.decay{height:2px;background:var(--rule);margin:14px 0 0;position:relative}
 .decay i{position:absolute;inset:0 auto 0 0;background:var(--live);transition:width .9s linear}
 .empty{padding:36px 0;color:var(--ink-soft);font-size:16.5px;border-bottom:1px solid var(--rule);cursor:text}
 
@@ -84,6 +86,7 @@ main{border-top:1px solid var(--rule)}
 .compose textarea{width:100%;display:block;font-family:var(--serif);font-size:17px;line-height:1.6;color:var(--ink);
   background:var(--paper-deep);border:1px solid var(--rule);border-radius:2px;padding:12px 13px;resize:vertical}
 .compose textarea:focus{outline:none;border-color:var(--live)}
+.compose textarea::placeholder{color:var(--ink-soft);opacity:.55;font-style:italic} /* 别让占位语看起来像已经写好的字 */
 .budget{font-family:var(--mono);font-size:12px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:12px;margin:6px 0 0;min-height:18px}
 .budget .hint{opacity:.65}
 #budget.over{color:var(--gone)}
@@ -123,6 +126,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   header{padding-top:36px}
   .rec.post .body{font-size:17.5px}
   .about{padding:20px 20px 24px}
+  .budget .hint{display:none} /* 手机上没有回车键这回事 */
 }
 @media (prefers-reduced-motion:reduce){.rec .body,.decay i{transition:none}}
 </style>
@@ -138,14 +142,14 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   <nav class="channels" aria-label="频道">
     <span id="chips"></span>
     <input id="channel" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="新频道" placeholder="＋ 新频道，回车">
+    <span class="sortbar" id="sortbar" role="group" aria-label="排序" hidden>
+      <button class="sort on" data-sort="new">最新</button>
+      <button class="sort" data-sort="soon">快过期</button>
+    </span>
   </nav>
 </header>
 
 <main>
-  <div class="sortbar" role="group" aria-label="排序">
-    <button class="sort on" data-sort="new">最新</button>
-    <button class="sort" data-sort="soon">快过期</button>
-  </div>
   <div class="status" id="status"></div>
   <ul id="list"></ul>
 </main>
@@ -157,7 +161,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
 
   <div class="row">
     <input class="s" id="nick" maxlength="12" spellcheck="false" aria-label="署名" placeholder="署名">
-    <input class="s" id="invite" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="邀请码" placeholder="邀请码">
+    <input class="s" id="invite" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="邀请码" placeholder="邀请码，可发更久">
     <span class="left" id="inviteLeft" role="status"></span>
     <label for="ttl">存活</label>
     <select id="ttl"></select>
@@ -328,8 +332,10 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   }
   const parseRecord = value => parseContent(joinStrings(value));
 
-  const clock = s => s<60 ? s+' 秒'
-    : Math.floor(s/60)+' 分 '+String(s%60).padStart(2,'0')+' 秒';
+  // 倒计时用 m:ss / h:mm:ss，宽度稳定不跳
+  const p2 = n => String(n).padStart(2,'0');
+  const clock = s => s<3600 ? Math.floor(s/60)+':'+p2(s%60)
+    : Math.floor(s/3600)+':'+p2(Math.floor(s%3600/60))+':'+p2(s%60);
   // 正文里的 http(s) 链接变成可点的 <a>：新标签打开；nofollow/ugc 不给对方算外链；noreferrer 不带来源
   // 链接遇到空格、中文或中文标点就停，句尾的英文标点也不算进去。只认 http(s)，所以不可能塞进 javascript:
   const URL_RE = /https?:\/\/[^\s<>"'`{}|\\^\[\]　-〿一-鿿＀-￯]+/g;
@@ -350,6 +356,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
   }
 
   function render(){
+    $('#sortbar').hidden = records.filter(r => r.isPost).length < 2; // 一条都排不出先后，别摆开关
     if(!records.length){
       const li = document.createElement('li');
       li.className = 'empty';
@@ -372,7 +379,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
       const meta = document.createElement('div');
       meta.className = 'meta';
       meta.innerHTML = r.isPost
-        ? '<span class="who fade">'+esc(r.who)+'</span>'
+        ? '<span class="who fade-soft">'+esc(r.who)+'</span>'
         : '<span>TXT · '+bytes(r.raw)+' 字节</span>';
       const ttlEl = document.createElement('span');
       ttlEl.className = 'ttl';
@@ -403,9 +410,10 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
       const frac = r.ttl > 0 ? Math.max(0, Math.min(1, left / r.ttl)) : 0;
       ttlEl.textContent = '剩余 ' + clock(left);
       li.querySelector('.decay i').style.width = (frac*100).toFixed(1)+'%';
-      if(!reduced){ // 正文、署名、时间一起淡去，只留倒计时清清楚楚
-        const op = (0.18 + 0.82*frac).toFixed(3);
-        li.querySelectorAll('.fade').forEach(el => { el.style.opacity = op; });
+      li.classList.toggle('soon', left <= 10); // 最后 10 秒倒计时和进度条变红
+      if(!reduced){ // 正文一起淡去，署名淡得少一点，只留倒计时清清楚楚
+        li.querySelectorAll('.fade').forEach(el => { el.style.opacity = (0.18 + 0.82*frac).toFixed(3); });
+        li.querySelectorAll('.fade-soft').forEach(el => { el.style.opacity = (0.45 + 0.55*frac).toFixed(3); });
       }
     }
     if(expired) apply(); // 把过期的从列表里拿掉（apply 会过滤掉它们）
