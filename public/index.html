@@ -31,13 +31,13 @@ header{padding:48px 0 0}
 .mark a:hover{color:var(--live);border-bottom-color:var(--live)}
 .mark a:focus-visible{outline:2px solid var(--live);outline-offset:3px}
 /* 状态点：绿=读取正常，每次轮询闪一下，来了新帖亮一下，读取失败变红 */
-.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-left:10px;vertical-align:1px;
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-left:10px;vertical-align:0;
   transition:background .3s}
-.dot.poll{animation:dotflash .7s ease-out}
-.dot.new{animation:dotglow 1.8s ease-out}
+.dot.poll{animation:dotblink .5s ease-in-out} /* 轮询只是轻轻暗一下，不发光 */
+.dot.new{animation:dotglow 1.8s ease-out}      /* 只有来了新帖才发光 */
 .dot.err{background:var(--gone)}
-@keyframes dotflash{0%{box-shadow:0 0 0 0 rgba(62,142,90,.55)}100%{box-shadow:0 0 0 7px rgba(62,142,90,0)}}
-@keyframes dotglow{0%,55%{box-shadow:0 0 9px 3px rgba(62,142,90,.75)}100%{box-shadow:0 0 0 0 rgba(62,142,90,0)}}
+@keyframes dotblink{50%{opacity:.35}}
+@keyframes dotglow{0%,55%{box-shadow:0 0 10px 4px rgba(62,142,90,.8)}100%{box-shadow:0 0 0 0 rgba(62,142,90,0)}}
 
 button{font-family:var(--mono);font-size:13px;color:var(--paper);background:var(--ink);
   border:none;border-radius:2px;padding:6px 14px;cursor:pointer}
