@@ -1,4 +1,4 @@
-import { createTxt, deleteRecord, listOurTxt, countOurTxt, DnsError } from './dns.js';
+import { createTxt, deleteRecord, listOurTxt, countOurTxt, evictSoonest, DnsError } from './dns.js';
 
 export { PostReaper } from './reaper.js';
 
@@ -61,10 +61,13 @@ async function handlePost(request, env) {
 
   // 200 条上限保护。2024-09-01 之后新建的免费 zone 只有 200 条，
   // 而且 zone 里的其他记录也计入配额，所以留了缓冲。
+  // 满了不让人等：把最接近过期的那条提前删掉腾位置。
   const cap = Number(env.RECORD_CAP || 180);
+  let evicted = false;
   try {
     if ((await countOurTxt(env)) >= cap) {
-      return json({ error: `已达记录上限（${cap}），等一些帖子过期后再发` }, 503);
+      evicted = Boolean(await evictSoonest(env));
+      if (!evicted) return json({ error: `已达记录上限（${cap}），等一些帖子过期后再发` }, 503);
     }
   } catch (err) {
     if (err.status === 429) return json({ error: 'API 限流，稍后再试' }, 429);
@@ -103,6 +106,7 @@ async function handlePost(request, env) {
     name,
     bytes: used,
     content, // 前端拿它先把自己的帖子垫上显示，等 DNS 返回同样的字符串再自然接管
+    evicted, // 为了腾位置提前删了一条最接近过期的帖子
     expiresAt: Math.floor(expiresAt / 1000),
     dig: `dig ${name} TXT +short`,
   });

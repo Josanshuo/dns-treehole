@@ -129,7 +129,13 @@ curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"
 | cron 精度 | 最细每分钟 | 兜底延迟，主删除靠 DO 闹钟 |
 | Durable Objects | 免费版仅 SQLite 存储后端 | 已用 `new_sqlite_classes` |
 
-**关于 200 条**：其他 Cloudflare 服务（如 Email Routing 自动添加的 TXT/MX）也计入配额，所以 `RECORD_CAP` 默认设成 180 留缓冲。算法：`同时存活帖子数 ≈ 发帖速率 × 平均存活时长`。
+**关于 200 条**：其他 Cloudflare 服务（如 Email Routing 自动添加的 TXT/MX）也计入配额，所以 `RECORD_CAP` 默认设成 180 留缓冲。算法：`同时存活帖子数 ≈ 发帖速率 × 平均存活时长`。到了 `RECORD_CAP` 不会拒绝发帖，而是把最接近过期的那条提前删掉腾位置（响应里 `evicted: true`）；只有连可删的都没有（或 API 出错）才返回 503。查自己 zone 的配额和当前用量：
+
+```bash
+curl "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/usage" \
+  -H "Authorization: Bearer $CF_API_TOKEN"
+# → result.record_quota / result.record_usage
+```
 
 **关于 API 额度**：dashboard 上的手工操作吃的是同一份额度。一边调试一边点面板，可能自己把自己限流。
 
@@ -150,7 +156,7 @@ curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"
 | 现象 | 检查 |
 |------|------|
 | 发布返回 502 | 令牌权限是否为 `Zone / DNS / Edit`，Zone ID 是否正确 |
-| 发布返回 503 | 记录数到上限了，等帖子过期或调高 `RECORD_CAP` |
+| 发布返回 503 | 记录数到上限且没有可挤掉的帖子（正常情况下满了会自动删掉最接近过期的一条）；看 `wrangler tail`，或调高 `RECORD_CAP` |
 | 发布成功但读不到 | 等 TTL 秒；或 `dig @1.1.1.1 <name> TXT` 直接确认权威侧 |
 | 帖子过期了还在 | 看 `wrangler tail` 里的对账日志；DO 闹钟可能连续失败了 |
 | 429 | 五分钟内的 API 调用超了，包括你在 dashboard 上的操作 |

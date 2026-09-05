@@ -472,7 +472,7 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
       });
       const j = await r.json();
       if(!r.ok){ box.className='result err'; box.textContent = j.error || ('HTTP '+r.status); return; }
-      box.textContent = '已发布 · '+j.bytes+' 字节';
+      box.textContent = '已发布 · '+j.bytes+' 字节' + (j.evicted ? ' · 树洞满了，挤掉了一条最接近过期的' : '');
       $('#text').value=''; updateBudget();
       $('#text').placeholder = pickOther(PLACEHOLDERS, $('#text').placeholder); // 发完换一句开头
       if($('#nick').value.trim() === autoNick){ // 署名还是自动填的那个，就换一个；用户自己起的名字不动

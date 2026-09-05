@@ -94,6 +94,28 @@ export async function listOurTxt(env) {
   return out;
 }
 
+/** 从我们的记录里挑出最接近过期的那条（comment 形如 RECORD_TAG:<过期毫秒时间戳>）。 */
+export function soonestExpiring(records) {
+  let best = null;
+  for (const r of records) {
+    const at = Number((r.comment || '').split(':')[1]);
+    if (!Number.isFinite(at)) continue;
+    if (!best || at < best.at) best = { at, record: r };
+  }
+  return best ? best.record : null;
+}
+
+/**
+ * 记录满了就把最接近过期的那条提前删掉腾位置，而不是让人等。
+ * 返回被删的记录；没有可删的返回 null。
+ */
+export async function evictSoonest(env) {
+  const victim = soonestExpiring(await listOurTxt(env));
+  if (!victim) return null;
+  await deleteRecord(env, victim.id);
+  return victim;
+}
+
 /** 当前占用的记录数，用于卡住 200 条上限。 */
 export async function countOurTxt(env) {
   const qs = new URLSearchParams({
