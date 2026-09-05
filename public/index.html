@@ -502,8 +502,12 @@ dialog::backdrop{background:rgba(34,37,42,.45)}
         }),
       });
       const j = await r.json();
-      if(j.left != null) showLeft(j); // 额度用完了也要让人看见
+      if(r.status === 403){ // 邀请码的问题只在邀请码旁边说一次，结果框不再重复
+        showLeft(j.left != null ? j : {ok:false});
+        box.style.display='none'; $('#invite').focus(); return;
+      }
       if(!r.ok){ box.className='result err'; box.textContent = j.error || ('HTTP '+r.status); return; }
+      if(j.left != null) showLeft(j);
       box.textContent = '已发布 · '+j.bytes+' 字节'
         + (j.left != null ? ' · 邀请码还剩 '+j.left+' 条' : '')
         + (j.evicted ? ' · 树洞满了，挤掉了一条最接近过期的' : '');

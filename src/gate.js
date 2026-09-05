@@ -42,7 +42,8 @@ export class PostGate extends DurableObject {
   /* ---------- 邀请码 ---------- */
 
   #row(code) {
-    return this.ctx.storage.sql.exec('SELECT * FROM invites WHERE code = ?', code).toArray()[0] || null;
+    // 生成的码都是小写；有人照着截图敲成大写也认
+    return this.ctx.storage.sql.exec('SELECT * FROM invites WHERE code = ?', String(code).toLowerCase()).toArray()[0] || null;
   }
 
   /** 查一个码还剩多少：{ ok, quota, used, left }；不存在时 { ok:false }。 */
@@ -111,7 +112,7 @@ export class PostGate extends DurableObject {
       // 记录建成了才扣额度，失败不算
       let left = null;
       if (row) {
-        this.ctx.storage.sql.exec('UPDATE invites SET used = used + 1 WHERE code = ?', invite);
+        this.ctx.storage.sql.exec('UPDATE invites SET used = used + 1 WHERE code = ?', row.code);
         left = row.quota - row.used - 1;
       }
       return { ok: true, recordId, evicted, left };
